@@ -413,6 +413,37 @@ impl Default for GpuConfig {
     }
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
+pub enum ContentType {
+    CpuUsage,
+    CpuTemp,
+    MemoryUsage,
+    NetworkUsage,
+    DiskUsage,
+    GpuInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, CosmicConfigEntry, PartialEq, Eq)]
+#[version = 1]
+pub struct ContentOrder {
+    pub order: Vec<ContentType>,
+}
+
+impl Default for ContentOrder {
+    fn default() -> Self {
+        Self {
+            order: vec![
+                ContentType::CpuUsage,
+                ContentType::CpuTemp,
+                ContentType::MemoryUsage,
+                ContentType::NetworkUsage,
+                ContentType::DiskUsage,
+                ContentType::GpuInfo,
+            ],
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, CosmicConfigEntry, PartialEq)]
 #[version = 1]
 pub struct MinimonConfig {
@@ -436,6 +467,8 @@ pub struct MinimonConfig {
 
     pub symbols: bool,
     pub panel_spacing: u16,
+    
+    pub content_order: ContentOrder,
 }
 
 impl Default for MinimonConfig {
@@ -467,6 +500,7 @@ impl Default for MinimonConfig {
             sysmon: 0,
             symbols: false,
             panel_spacing: 3, // Slider setting for cosmic.space_xs()
+            content_order: ContentOrder::default(),
         }
     }
 }

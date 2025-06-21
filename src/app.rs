@@ -12,7 +12,7 @@ use cosmic::iced::Limits;
 use cosmic::iced::platform_specific::shell::wayland::commands::popup::{destroy_popup, get_popup};
 use cosmic::iced::window::Id;
 use cosmic::iced::{self, Subscription};
-use cosmic::widget::{container, list, settings, spin_button, text};
+use cosmic::widget::{button, container, horizontal_space, list, settings, spin_button, text};
 use cosmic::{Apply, Element};
 use cosmic::{widget, widget::autosize};
 
@@ -33,7 +33,8 @@ use log::{error, info};
 
 use crate::colorpicker::ColorPicker;
 use crate::config::{
-    ColorVariant, DeviceKind, DisksVariant, GpuConfig, GraphColors, GraphKind, NetworkVariant,
+    ColorVariant, ContentType, DeviceKind, DisksVariant, GpuConfig, GraphColors, GraphKind,
+    NetworkVariant,
 };
 use crate::sensors::cpu::Cpu;
 use crate::sensors::cputemp::CpuTemp;
@@ -174,6 +175,12 @@ pub struct Minimon {
 }
 
 #[derive(Debug, Clone)]
+pub struct ContentOrderChange {
+    pub current_index: usize,
+    pub new_index: usize,
+}
+
+#[derive(Debug, Clone)]
 pub enum Message {
     TogglePopup,
 
@@ -235,6 +242,8 @@ pub enum Message {
     ToggleDisableOnBattery(String, bool),
     ToggleSymbols(bool),
     SysmonSelect(usize),
+
+    ChangeContentOrder(ContentOrderChange),
 }
 
 const APP_ID_DOCK: &str = "io.github.cosmic_utils.minimon-applet-dock";
@@ -366,13 +375,30 @@ impl cosmic::Application for Minimon {
 
         // Build the full list of panel elements
         let mut elements: Vec<Element<Message>> = Vec::new();
-        elements.extend(self.cpu_panel_ui(horizontal));
-        elements.extend(self.cpu_temp_panel_ui(horizontal));
-        elements.extend(self.memory_panel_ui(horizontal));
-        elements.extend(self.network_panel_ui(horizontal));
-        elements.extend(self.disks_panel_ui(horizontal));
-        for gpu in self.gpus.values() {
-            elements.extend(self.gpu_panel_ui(gpu, horizontal));
+
+        for content in &self.config.content_order.order {
+            match content {
+                ContentType::CpuUsage => {
+                    elements.extend(self.cpu_panel_ui(horizontal));
+                }
+                ContentType::CpuTemp => {
+                    elements.extend(self.cpu_temp_panel_ui(horizontal));
+                }
+                ContentType::MemoryUsage => {
+                    elements.extend(self.memory_panel_ui(horizontal));
+                }
+                ContentType::NetworkUsage => {
+                    elements.extend(self.network_panel_ui(horizontal));
+                }
+                ContentType::DiskUsage => {
+                    elements.extend(self.disks_panel_ui(horizontal));
+                }
+                ContentType::GpuInfo => {
+                    for gpu in self.gpus.values() {
+                        elements.extend(self.gpu_panel_ui(gpu, horizontal));
+                    }
+                }
+            }
         }
 
         let spacing = match self.config.panel_spacing {
@@ -1090,6 +1116,12 @@ impl cosmic::Application for Minimon {
                     error!("ToggleDisableOnBattery: wrong id {id:?}");
                 }
             }
+            Message::ChangeContentOrder(order_change) => {
+                self.config
+                    .content_order
+                    .order
+                    .swap(order_change.current_index, order_change.new_index);
+            }
         }
         Task::none()
     }
@@ -1261,6 +1293,62 @@ impl Minimon {
             ),
         );
 
+        let content_items = Column::from_vec({
+            let mut children = Vec::new();
+
+            for (index, content) in self.config.content_order.order.iter().enumerate() {
+                let item = match content {
+                    ContentType::CpuUsage => text(fl!("settings-cpu")),
+                    ContentType::CpuTemp => text(fl!("settings-cpu-temperature")),
+                    ContentType::MemoryUsage => text(fl!("settings-memory")),
+                    ContentType::NetworkUsage => text(fl!("settings-network")),
+                    ContentType::DiskUsage => text(fl!("settings-disks")),
+                    ContentType::GpuInfo => text(fl!("settings-gpu")),
+                };
+
+                let item_row = row!(
+                    row!(
+                        button::icon(
+                            widget::icon::from_name("pan-up-symbolic")
+                                .symbolic(true)
+                                .size(5)
+                        )
+                        .on_press(Message::ChangeContentOrder(
+                            ContentOrderChange {
+                                current_index: index,
+                                new_index: index - 1
+                            }
+                        )),
+                        button::icon(
+                            widget::icon::from_name("pan-down-symbolic")
+                                .symbolic(true)
+                                .size(5)
+                        )
+                        .on_press(Message::ChangeContentOrder(
+                            ContentOrderChange {
+                                current_index: index,
+                                new_index: index + 1
+                            }
+                        )),
+                    ),
+                    item
+                )
+                .spacing(cosmic::theme::spacing().space_xxs)
+                .align_y(Alignment::Center);
+
+                children.push(item_row.into())
+            }
+
+            children
+        })
+        .spacing(cosmic::theme::spacing().space_s);
+
+        let content_order = row!(
+            text(fl!("content-order")),
+            horizontal_space(),
+            content_items
+        );
+
         // Combine rows into a column with spacing
         column!(
             version_row,
@@ -1269,7 +1357,8 @@ impl Minimon {
             mono_row,
             symbol_row,
             spacing_row,
-            sysmon_row
+            sysmon_row,
+            content_order
         )
         .spacing(10)
         .into()
