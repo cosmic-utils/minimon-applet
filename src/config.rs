@@ -340,6 +340,7 @@ impl Default for CpuTempConfig {
 make_config!(MemoryConfig {
     pub percentage: bool,
     pub show_allocated: bool,
+    pub stack_labels: bool,
 });
 
 impl Default for MemoryConfig {
@@ -351,6 +352,7 @@ impl Default for MemoryConfig {
             colors: Colors::new(DeviceKind::Memory),
             percentage: false,
             show_allocated: false,
+            stack_labels: false, // future use
         }
     }
 }
