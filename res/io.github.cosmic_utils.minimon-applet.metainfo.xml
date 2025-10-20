@@ -17,6 +17,8 @@
     <color type="primary" scheme_preference="dark">#2b2b2b</color>
   </branding>
   <summary>A Customizable System Monitor applet for COSMIC</summary>
+  <summary xml:lang="fr">Un applet de surveillance du système personnalisable pour COSMIC</summary>
+  <summary xml:lang="es">Un applet de monitor del sistema personalizable para COSMIC</summary>
   <summary xml:lang="ar">تطبيق مصغر لمراقبة النظام قابل للتخصيص لـ COSMIC</summary>
   <summary xml:lang="hu">Egy testreszabható rendszerfigyelő kisalkalmazás a COSMIC-hoz</summary>
   <summary xml:lang="da">En tilpasselig systemovervågnings-applet til COSMIC</summary>
@@ -25,8 +27,9 @@
   <summary xml:lang="pt-BR">Um miniaplicativo personalizável de monitoramento do sistema para o COSMIC</summary>
   <summary xml:lang="zh-CN">一个可自定义的 COSMIC 系统监控小程序</summary>
   <description>
-    <p>A lightweight hardware monitoring applet for the COSMIC desktop environment with UI for
-      customization. Shows information on CPU, GPU, network, memory, and disk usage.</p>
+    <p>A lightweight hardware monitoring applet for the COSMIC desktop environment with UI for customization. Shows information on CPU, GPU, network, memory, and disk usage.</p>
+    <p xml:lang="fr">Un applet l�ger de surveillance du mat�riel pour l\u2019environnement de bureau COSMIC, avec une interface utilisateur pour la personnalisation. Affiche des informations sur l\u2019utilisation du processeur, du GPU, du r�seau, de la m�moire et du disque.</p>
+    <p xml:lang="es">Un applet ligero de monitoreo de hardware para el entorno de escritorio COSMIC, con una interfaz de usuario para la personalizaci�n. Muestra informaci�n sobre el uso de la CPU, GPU, red, memoria y disco.</p>
     <p xml:lang="ar">تطبيق مراقبة أجهزة خفيف لبيئة سطح المكتب COSMIC مع واجهة مستخدم للتخصيص. يعرض معلومات حول استخدام المعالج، معالج الرسوميات، والشبكة، والذاكرة، والقرص.</p>
     <p xml:lang="hu">Egy könnyűsúlyú hardverfigyelő kisalkalmazás a COSMIC asztali környezethez, testreszabható felülettel. 
      Megjeleníti a CPU, GPU, hálózat, memória és lemez használatot.</p>
@@ -43,6 +46,8 @@
       <image>
         https://raw.githubusercontent.com/cosmic-utils/minimon-applet/main/res/screenshots/main_expanded_styled.png</image>
       <caption>A styled instance of the applet with with the window view open.</caption>
+      <caption xml:lang="fr">Un exemple stylisé de l’applet avec la vue de la fenêtre ouverte.</caption>
+      <caption xml:lang="es">Un ejemplo con estilo del applet con la vista de la ventana abierta.</caption>
       <caption xml:lang="ar">نُسخة منسقة للبرنامج الصغير مع عرض النافذة مفتوحًا.</caption>
       <caption xml:lang="hu">A kisalkalmazás egy formázott példánya megnyitott ablaknézettel.</caption>
       <caption xml:lang="da">En formateret instans af applet med vinduesvisning åben.</caption>
@@ -65,6 +70,18 @@
     <internet>always</internet>
   </recommends>
   <releases>
+  <release version="0.9.0" date="2025-10-20">
+      <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.9.0</url>
+      <description>
+        <p>What's new:</p>
+        <ul>
+          <li>Option to show total Allocated memory on charts. This includes system cache, buffers, etc.</li>
+          <li>Saves colors for each chart separately, e.g. for line and ring chart for a sensor.</li>
+          <li>Fix: Line charts can now adjust opacity shading in the full range.</li>
+          <li>Various cosmetic adjustments.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.8.1" date="2025-09-14">
       <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.8.1</url>
       <description>
