@@ -1034,10 +1034,6 @@ impl Gpu {
                         Message::SelectGpuTempUnit(id1.clone(), m.into())
                     },)
                 ),
-                settings::item(
-                    fl!("min-temperature"),
-                    min_temp_input
-                ),
                 row!(
                     widget::text::body(fl!("chart-type")),
                     widget::dropdown(&self.temp.graph_options, selected, move |m| {
@@ -1051,6 +1047,10 @@ impl Gpu {
                 )
                 .align_y(Center),
             )
+            .push_maybe(match self.config.temp.chart {
+                ChartKind::Ring => Some(settings::item(fl!("min-temperature"), min_temp_input)),
+                _ => None,
+            })
             .spacing(cosmic.space_xs()),
         ));
 

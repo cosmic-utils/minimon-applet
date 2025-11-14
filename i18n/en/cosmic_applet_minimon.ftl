@@ -77,6 +77,7 @@ settings-disable-on-battery = Disable monitoring while on battery to allow the G
 enable-symbols = Show symbols
 settings-gpu-stack-labels = If GPU and VRAM labels enabled stack them vertically
 settings-panel-spacing = Panel spacing
+min-temperature = Minimum temperature
 cpu-temp-amd = For AMD processors shows 'Tdie' (true die temperature) if found, otherwise show 'Tctl' (a temperature with an offset set by AMD).
 cpu-temp-intel = For Intel processors shows single highest temperature found across all sensors/cores.
 sensor-gpu-temp = GPU temperature

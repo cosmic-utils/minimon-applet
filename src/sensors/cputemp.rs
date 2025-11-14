@@ -294,7 +294,10 @@ impl Sensor for CpuTemp {
                     let _ = value.pop();
                 }
 
-                let percentage: u8 = (latest - self.config.min_temp).max(0.0).round().clamp(0.0, 100.0) as u8;
+                let percentage: u8 = (latest - self.config.min_temp)
+                    .max(0.0)
+                    .round()
+                    .clamp(0.0, 100.0) as u8;
 
                 crate::svg_graph::ring(&value, percentage, None, &self.svg_colors)
             }
@@ -374,10 +377,6 @@ impl Sensor for CpuTemp {
                         Message::SelectCpuTempUnit(m.into())
                     },)
                 ),
-                settings::item(
-                    fl!("min-temperature"),
-                    min_temp_input
-                ),
                 row!(
                     widget::text::body(fl!("chart-type")),
                     widget::dropdown(&self.graph_options, selected_graph, |m| {
@@ -389,8 +388,12 @@ impl Sensor for CpuTemp {
                         Message::ColorPickerOpen(DeviceKind::CpuTemp, temp_kind, None)
                     ),
                 )
-                .align_y(Center)
+                .align_y(Center),
             )
+            .push_maybe(match self.config.chart {
+                ChartKind::Ring => Some(settings::item(fl!("min-temperature"), min_temp_input)),
+                _ => None,
+            })
             .spacing(cosmic.space_xs()),
         ));
 
