@@ -494,8 +494,8 @@ impl TempGraph {
                 let mut latest = self.latest_sample();
                 let mut text = self.to_string();
 
-                // remove the C/F/K unit if there's not enough space
-                if text.len() > 3 {
+                // remove the °C/°F/°R/K unit if there's not enough space (assuming temp stays below 282°C = 1000°R)
+                while text.len() > 3 {
                     let _ = text.pop();
                 }
                 let mut percentage = String::with_capacity(10);
@@ -547,8 +547,8 @@ impl TempGraph {
                 let latest = self.latest_sample();
                 let mut value = self.to_string();
 
-                // remove the C/F/K unit if there's not enough space
-                if value.len() > 3 {
+                // remove the °C/°F/°R/K unit if there's not enough space (assuming temp stays below 282°C = 1000°R)
+                while value.len() > 3 {
                     let _ = value.pop();
                 }
                 let max = 100.0;
