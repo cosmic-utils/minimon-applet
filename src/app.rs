@@ -1218,6 +1218,7 @@ impl cosmic::Application for Minimon {
                     .content_order
                     .order
                     .swap(order_change.current_index, order_change.new_index);
+                self.save_config();
             }
             Message::Tip => {
                 Self::open_tipping_page_in_browser();
@@ -1342,7 +1343,7 @@ impl Minimon {
             )),
             horizontal_space(),
             heart.on_press(Message::Tip)
-        ); 
+        );
         // Create settings rows
         let refresh_row = settings::item(
             fl!("refresh-rate"),
