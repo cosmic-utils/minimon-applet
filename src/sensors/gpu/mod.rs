@@ -9,7 +9,7 @@ pub trait GpuIf {
     fn id(&self) -> String;
     fn usage(&self) -> Result<u32>;
 
-    // Temp in millidegrees Celcius
+    // Temp in millidegrees Celsius
     fn temperature(&self) -> Result<u32>;
     fn vram_total(&self) -> u64;
     fn vram_used(&self) -> Result<u64>;

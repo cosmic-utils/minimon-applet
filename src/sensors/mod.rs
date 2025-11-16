@@ -73,7 +73,7 @@ use crate::{colorpicker::DemoGraph, config::ChartKind};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TempUnit {
-    Celcius,
+    Celsius,
     Farenheit,
     Kelvin,
     Rankine,
@@ -111,11 +111,11 @@ pub mod network;
 impl From<usize> for TempUnit {
     fn from(index: usize) -> Self {
         match index {
-            0 => TempUnit::Celcius,
+            0 => TempUnit::Celsius,
             1 => TempUnit::Farenheit,
             2 => TempUnit::Kelvin,
             3 => TempUnit::Rankine,
-            _ => { log::error!("Invalid index for TempUnit"); TempUnit::Celcius},
+            _ => { log::error!("Invalid index for TempUnit"); TempUnit::Celsius},
         }
     }
 }
@@ -123,7 +123,7 @@ impl From<usize> for TempUnit {
 impl From<TempUnit> for usize {
     fn from(kind: TempUnit) -> Self {
         match kind {
-            TempUnit::Celcius => 0,
+            TempUnit::Celsius => 0,
             TempUnit::Farenheit => 1,
             TempUnit::Kelvin => 2,
             TempUnit::Rankine => 3,
