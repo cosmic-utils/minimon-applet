@@ -332,7 +332,7 @@ impl Default for CpuTempConfig {
             label_visible: false,
             chart: ChartKind::Heat,
             colors: Colors::new(DeviceKind::CpuTemp),
-            unit: TempUnit::Celcius,
+            unit: TempUnit::Celsius,
         }
     }
 }
@@ -448,7 +448,7 @@ impl Default for GpuTempConfig {
             label_visible: false,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::GpuTemp),
-            unit: TempUnit::Celcius,
+            unit: TempUnit::Celsius,
         }
     }
 }
