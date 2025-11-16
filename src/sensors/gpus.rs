@@ -673,17 +673,17 @@ impl fmt::Display for TempGraph {
         let current_val = self.latest_sample();
         if self.disabled || current_val <= 0.0 {
             match self.config.unit {
-                TempUnit::Celcius => write!(f, "--C"),
-                TempUnit::Farenheit => write!(f, "---F"),
+                TempUnit::Celcius => write!(f, "--°C"),
+                TempUnit::Farenheit => write!(f, "---°F"),
                 TempUnit::Kelvin => write!(f, "---K"),
-                TempUnit::Rankine => write!(f, "---R"),
+                TempUnit::Rankine => write!(f, "---°R"),
             }
         } else {
             match self.config.unit {
-                TempUnit::Celcius => write!(f, "{}C", current_val.trunc()),
-                TempUnit::Farenheit => write!(f, "{}F", (current_val * 9.0 / 5.0 + 32.0).trunc()),
+                TempUnit::Celcius => write!(f, "{}°C", current_val.trunc()),
+                TempUnit::Farenheit => write!(f, "{}°F", (current_val * 9.0 / 5.0 + 32.0).trunc()),
                 TempUnit::Kelvin => write!(f, "{}K", (current_val + 273.15).trunc()),
-                TempUnit::Rankine => write!(f, "{}R", (current_val * 9.0 / 5.0 + 491.67).trunc()),
+                TempUnit::Rankine => write!(f, "{}°R", (current_val * 9.0 / 5.0 + 491.67).trunc()),
             }
         }
     }
