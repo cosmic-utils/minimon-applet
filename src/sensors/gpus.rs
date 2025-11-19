@@ -551,7 +551,12 @@ impl TempGraph {
                 if value.len() > 3 {
                     let _ = value.pop();
                 }
-                let percentage: u8 = (latest - self.config.min_temp).max(0.0).round().clamp(0.0, 100.0) as u8;
+                let max = 100.0;
+                let offset_max = max - self.config.min_temp;
+                let percentage: u8 = ((latest - self.config.min_temp) / offset_max * 100.0)
+                    .max(0.0)
+                    .round()
+                    .clamp(0.0, max) as u8;
 
                 crate::svg_graph::ring(
                     &value,
