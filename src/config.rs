@@ -265,7 +265,7 @@ impl Colors {
 
 macro_rules! make_config {
     ($name:ident { $($extra:tt)* }) => {
-        #[derive(Debug, Clone, Serialize, Deserialize, CosmicConfigEntry, PartialEq, Eq)]
+        #[derive(Debug, Clone, Serialize, Deserialize, CosmicConfigEntry, PartialEq)]
         #[version = 1]
         pub struct $name {
             chart_visible: bool,
@@ -323,6 +323,7 @@ impl Default for CpuConfig {
 
 make_config!(CpuTempConfig {
     pub unit: TempUnit,
+    pub min_temp: f64,
 });
 
 impl Default for CpuTempConfig {
@@ -333,6 +334,7 @@ impl Default for CpuTempConfig {
             chart: ChartKind::Heat,
             colors: Colors::new(DeviceKind::CpuTemp),
             unit: TempUnit::Celcius,
+            min_temp: 0.0,
         }
     }
 }
@@ -439,6 +441,7 @@ impl Default for GpuVramConfig {
 
 make_config!(GpuTempConfig {
         pub unit: TempUnit,
+        pub min_temp: f64,
 });
 
 impl Default for GpuTempConfig {
@@ -449,11 +452,12 @@ impl Default for GpuTempConfig {
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::GpuTemp),
             unit: TempUnit::Celcius,
+            min_temp: 0.0,
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, CosmicConfigEntry, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, CosmicConfigEntry, PartialEq)]
 #[version = 1]
 pub struct GpuConfig {
     pub usage: GpuUsageConfig,

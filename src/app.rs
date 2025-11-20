@@ -257,6 +257,7 @@ pub enum Message {
     ToggleMonospaceLabels(bool),
     PanelSpacing(u16),
     SelectCpuTempUnit(TempUnit),
+    CpuTempMinTempChanged(f64),
 
     Settings(Option<SettingsVariant>),
 
@@ -265,6 +266,7 @@ pub enum Message {
     GpuToggleStackLabels(String, bool),
     GpuSelectGraphType(String, DeviceKind, ChartKind),
     SelectGpuTempUnit(String, TempUnit),
+    GpuTempMinTempChanged(String, f64),
     ToggleDisableOnBattery(String, bool),
     ToggleSymbols(bool),
     SysmonSelect(usize),
@@ -991,6 +993,12 @@ impl cosmic::Application for Minimon {
                 self.save_config();
             }
 
+            Message::CpuTempMinTempChanged(temp) => {
+                info!("Message::CpuTempMinTempChanged({temp})");
+                self.config.cputemp.min_temp = temp;
+                self.save_config();
+            }
+
             Message::CpuBarSizeChanged(width) => {
                 info!("Message::CpuBarSizeChanged({width})");
                 self.config.cpu.bar_width = width;
@@ -1167,6 +1175,16 @@ impl cosmic::Application for Minimon {
                     error!("GpuToggleStackLabels: wrong id {id:?}");
                 }
                 self.save_config();
+            }
+
+            Message::GpuTempMinTempChanged(id, temp) => {
+                info!("Message::GpuTempMinTempChanged({id:?}, {temp})");
+                if let Some(c) = self.config.gpus.get_mut(&id) {
+                    c.temp.min_temp = temp;
+                    self.save_config();
+                } else {
+                    error!("GpuTempMinTempChanged: wrong id {id:?}");
+                }
             }
 
             Message::GpuToggleStackLabels(id, toggled) => {

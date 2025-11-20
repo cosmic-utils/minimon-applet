@@ -551,7 +551,12 @@ impl TempGraph {
                 if value.len() > 3 {
                     let _ = value.pop();
                 }
-                let percentage: u8 = latest.round().clamp(0.0, 100.0) as u8;
+                let max = 100.0;
+                let offset_max = max - self.config.min_temp;
+                let percentage: u8 = ((latest - self.config.min_temp) / offset_max * 100.0)
+                    .max(0.0)
+                    .round()
+                    .clamp(0.0, max) as u8;
 
                 crate::svg_graph::ring(
                     &value,
@@ -997,6 +1002,23 @@ impl Gpu {
         let temp_kind = self.temp.graph_kind();
         let id1 = self.id();
         let id2 = self.id();
+        let id3 = self.id();
+        let min_temp_val = config.min_temp;
+
+        let min_temp_input = {
+            let val_string = min_temp_val.to_string();
+            widget::text_input("", val_string)
+                .width(100)
+                .on_input(move |temp_str| {
+                    let temp = if temp_str.is_empty() {
+                        0.0
+                    } else {
+                        temp_str.parse::<f64>().unwrap_or(min_temp_val)
+                    };
+                    Message::GpuTempMinTempChanged(id3.clone(), temp)
+                })
+        };
+
         temp_elements.push(Element::from(
             column!(
                 settings::item(
@@ -1030,6 +1052,10 @@ impl Gpu {
                 )
                 .align_y(Center),
             )
+            .push_maybe(match self.config.temp.chart {
+                ChartKind::Ring => Some(settings::item(fl!("min-temperature"), min_temp_input)),
+                _ => None,
+            })
             .spacing(cosmic.space_xs()),
         ));
 
