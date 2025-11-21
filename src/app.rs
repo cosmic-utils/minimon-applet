@@ -995,8 +995,10 @@ impl cosmic::Application for Minimon {
 
             Message::CpuTempMinTempChanged(temp) => {
                 info!("Message::CpuTempMinTempChanged({temp})");
-                self.config.cputemp.min_temp = temp;
-                self.save_config();
+                if temp >= 0.0 && temp < 100.0 {
+                    self.config.cputemp.min_temp = temp;
+                    self.save_config();
+                }
             }
 
             Message::CpuBarSizeChanged(width) => {
@@ -1179,11 +1181,13 @@ impl cosmic::Application for Minimon {
 
             Message::GpuTempMinTempChanged(id, temp) => {
                 info!("Message::GpuTempMinTempChanged({id:?}, {temp})");
-                if let Some(c) = self.config.gpus.get_mut(&id) {
-                    c.temp.min_temp = temp;
-                    self.save_config();
-                } else {
-                    error!("GpuTempMinTempChanged: wrong id {id:?}");
+                if temp >= 0.0 && temp < 100.0 {
+                    if let Some(c) = self.config.gpus.get_mut(&id) {
+                        c.temp.min_temp = temp;
+                        self.save_config();
+                    } else {
+                        error!("GpuTempMinTempChanged: wrong id {id:?}");
+                    }
                 }
             }
 
