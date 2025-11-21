@@ -153,10 +153,9 @@ impl DemoGraph for CpuTemp {
         match self.config.chart {
             ChartKind::Ring => {
                 // show a number of 40% of max
-                let val = 40;
-                let percentage: u8 = 40;
-                crate::svg_graph::ring(&format!("{val}"), percentage, None, &self.svg_colors)
+                crate::svg_graph::ring(&format!("40°"), 40, None, &self.svg_colors)
             }
+
             ChartKind::Line => crate::svg_graph::line(
                 &std::collections::VecDeque::from(DEMO_SAMPLES),
                 100.0,
@@ -287,13 +286,12 @@ impl Sensor for CpuTemp {
         let svg = match self.config.chart {
             ChartKind::Ring => {
                 let latest = self.latest_sample();
-                let mut value = self.to_string();
+                let mut value = self.to_string_raw();
 
-                // remove the °C/°F/°R/K unit if there's not enough space (assuming temp stays below 282°C = 1000°R)
-                while value.len() > 3 {
-                    let _ = value.pop();
+                if value.len() < 3 {
+                    value.push('°');
                 }
-                
+
                 let offset_max = max - self.config.min_temp;
                 let percentage: u8 = ((latest - self.config.min_temp) / offset_max * 100.0)
                     .max(0.0)
@@ -455,6 +453,16 @@ impl CpuTemp {
 
     pub fn latest_sample(&self) -> f64 {
         *self.samples.back().unwrap_or(&0f64)
+    }
+
+    pub fn to_string_raw(&self) -> String {
+        let current_val = self.latest_sample();
+        match self.config.unit {
+            TempUnit::Celsius => current_val.trunc().to_string(),
+            TempUnit::Farenheit => (current_val * 9.0 / 5.0 + 32.0).trunc().to_string(),
+            TempUnit::Kelvin => (current_val + 273.15).trunc().to_string(),
+            TempUnit::Rankine => (current_val * 9.0 / 5.0 + 491.67).trunc().to_string(),
+        }
     }
 }
 
