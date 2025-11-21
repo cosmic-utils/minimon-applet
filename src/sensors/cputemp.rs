@@ -248,8 +248,8 @@ impl Sensor for CpuTemp {
                 let latest = self.latest_sample();
                 let mut value = self.to_string();
 
-                // remove the C/F/K unit if there's not enough space
-                if value.len() > 3 {
+                // remove the °C/°F/°R/K unit if there's not enough space (assuming temp stays below 282°C = 1000°R)
+                while value.len() > 3 {
                     let _ = value.pop();
                 }
                 chart_container!(crate::charts::ring::RingChart::new(
@@ -289,8 +289,8 @@ impl Sensor for CpuTemp {
                 let latest = self.latest_sample();
                 let mut value = self.to_string();
 
-                // remove the C/F/K unit if there's not enough space
-                if value.len() > 3 {
+                // remove the °C/°F/°R/K unit if there's not enough space (assuming temp stays below 282°C = 1000°R)
+                while value.len() > 3 {
                     let _ = value.pop();
                 }
                 
@@ -464,10 +464,10 @@ impl fmt::Display for CpuTemp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let current_val = self.latest_sample();
         match self.config.unit {
-            TempUnit::Celcius => write!(f, "{}C", current_val.trunc()),
-            TempUnit::Farenheit => write!(f, "{}F", (current_val * 9.0 / 5.0 + 32.0).trunc()),
+            TempUnit::Celsius => write!(f, "{}°C", current_val.trunc()),
+            TempUnit::Farenheit => write!(f, "{}°F", (current_val * 9.0 / 5.0 + 32.0).trunc()),
             TempUnit::Kelvin => write!(f, "{}K", (current_val + 273.15).trunc()),
-            TempUnit::Rankine => write!(f, "{}R", (current_val * 9.0 / 5.0 + 491.67).trunc()),
+            TempUnit::Rankine => write!(f, "{}°R", (current_val * 9.0 / 5.0 + 491.67).trunc()),
         }
     }
 }

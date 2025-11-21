@@ -494,8 +494,8 @@ impl TempGraph {
                 let mut latest = self.latest_sample();
                 let mut text = self.to_string();
 
-                // remove the C/F/K unit if there's not enough space
-                if text.len() > 3 {
+                // remove the °C/°F/°R/K unit if there's not enough space (assuming temp stays below 282°C = 1000°R)
+                while text.len() > 3 {
                     let _ = text.pop();
                 }
                 let mut percentage = String::with_capacity(10);
@@ -547,8 +547,8 @@ impl TempGraph {
                 let latest = self.latest_sample();
                 let mut value = self.to_string();
 
-                // remove the C/F/K unit if there's not enough space
-                if value.len() > 3 {
+                // remove the °C/°F/°R/K unit if there's not enough space (assuming temp stays below 282°C = 1000°R)
+                while value.len() > 3 {
                     let _ = value.pop();
                 }
                 let max = 100.0;
@@ -673,17 +673,17 @@ impl fmt::Display for TempGraph {
         let current_val = self.latest_sample();
         if self.disabled || current_val <= 0.0 {
             match self.config.unit {
-                TempUnit::Celcius => write!(f, "--C"),
-                TempUnit::Farenheit => write!(f, "---F"),
+                TempUnit::Celsius => write!(f, "--°C"),
+                TempUnit::Farenheit => write!(f, "---°F"),
                 TempUnit::Kelvin => write!(f, "---K"),
-                TempUnit::Rankine => write!(f, "---R"),
+                TempUnit::Rankine => write!(f, "---°R"),
             }
         } else {
             match self.config.unit {
-                TempUnit::Celcius => write!(f, "{}C", current_val.trunc()),
-                TempUnit::Farenheit => write!(f, "{}F", (current_val * 9.0 / 5.0 + 32.0).trunc()),
+                TempUnit::Celsius => write!(f, "{}°C", current_val.trunc()),
+                TempUnit::Farenheit => write!(f, "{}°F", (current_val * 9.0 / 5.0 + 32.0).trunc()),
                 TempUnit::Kelvin => write!(f, "{}K", (current_val + 273.15).trunc()),
-                TempUnit::Rankine => write!(f, "{}R", (current_val * 9.0 / 5.0 + 491.67).trunc()),
+                TempUnit::Rankine => write!(f, "{}°R", (current_val * 9.0 / 5.0 + 491.67).trunc()),
             }
         }
     }
