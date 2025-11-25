@@ -545,12 +545,12 @@ impl TempGraph {
         let svg = match self.config.chart {
             ChartKind::Ring => {
                 let latest = self.latest_sample();
-                let mut value = self.to_string();
+                let mut value = self.to_string_raw();
 
-                // remove the °C/°F/°R/K unit if there's not enough space (assuming temp stays below 282°C = 1000°R)
-                while value.len() > 3 {
-                    let _ = value.pop();
+                if value.len() < 3 {
+                    value.push('°');
                 }
+
                 let max = 100.0;
                 let offset_max = max - self.config.min_temp;
                 let percentage: u8 = ((latest - self.config.min_temp) / offset_max * 100.0)
@@ -610,6 +610,16 @@ impl TempGraph {
     pub fn update(&mut self, sample: u32) {
         let new_val = f64::from(sample) / 1000.0;
         self.samples.push_back(new_val);
+    }
+
+    pub fn to_string_raw(&self) -> String {
+        let current_val = self.latest_sample();
+        match self.config.unit {
+            TempUnit::Celsius => current_val.trunc().to_string(),
+            TempUnit::Farenheit => (current_val * 9.0 / 5.0 + 32.0).trunc().to_string(),
+            TempUnit::Kelvin => (current_val + 273.15).trunc().to_string(),
+            TempUnit::Rankine => (current_val * 9.0 / 5.0 + 491.67).trunc().to_string(),
+        }
     }
 }
 
