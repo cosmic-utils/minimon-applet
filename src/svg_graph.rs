@@ -136,6 +136,9 @@ pub fn line(samples: &VecDeque<f64>, max_y: f64, colors: &SvgColors) -> String {
     svg.push_str(LINESVG_7);
     svg.push_str(&indexed_string);
     svg.push_str(LINESVG_8);
+    svg.push_str(LINESVG_FRAME_START);
+    svg.push_str(&colors.frame);
+    svg.push_str(LINESVG_FRAME_END);
     svg.push_str(LINESVG_9);
 
     svg
@@ -228,6 +231,9 @@ pub fn line_stacked(
     svg.push_str(r#"" stroke-width="1" points=""#);
     svg.push_str(&pts_alloc_fwd);
     svg.push_str(r#""/>"#);
+    svg.push_str(LINESVG_FRAME_START);
+    svg.push_str(&colors.frame);
+    svg.push_str(LINESVG_FRAME_END);
 
     svg.push_str(LINESVG_9);
     svg
@@ -307,6 +313,9 @@ pub fn double_line(
     svg.push_str(DBLLINESVG_7);
     svg.push_str(&indexed_string2);
     svg.push_str(DBLLINESVG_8);
+    svg.push_str(LINESVG_FRAME_START);
+    svg.push_str(&colors.frame);
+    svg.push_str(LINESVG_FRAME_END);
 
     svg.push_str(DBLLINESVG_9);
 
@@ -357,6 +366,9 @@ pub fn line_adaptive(
     svg.push_str(DBLLINESVG_7);
     svg.push_str(&indexed_string);
     svg.push_str(DBLLINESVG_8);
+    svg.push_str(LINESVG_FRAME_START);
+    svg.push_str(&colors.frame);
+    svg.push_str(LINESVG_FRAME_END);
 
     svg.push_str(DBLLINESVG_9);
 
@@ -431,6 +443,10 @@ const LINESVG_6: &str = r#""/><polygon fill=""#; // polygon color placeholder
 const LINESVG_7: &str = r#"" points=""#;
 const LINESVG_8: &str = r#"  41,41 1,41"/>"#;
 const LINESVG_9: &str = r#"</g></svg>"#;
+
+const LINESVG_FRAME_START: &str =
+    r#"<rect x="0" y="0" rx="7" ry="7" width="42" height="42" fill="none" stroke=""#;
+const LINESVG_FRAME_END: &str = r#""/>"#;
 
 const LINE_LEN: usize = 640; // Just for preallocation
 // Ring SVG
