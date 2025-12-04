@@ -542,6 +542,11 @@ impl TempGraph {
 
     #[cfg(not(feature = "lyon_charts"))]
     pub fn chart(&'_ self) -> cosmic::widget::Container<'_, crate::app::Message, Theme, Renderer> {
+        let colors = if self.disabled {
+            &self.disabled_colors
+        } else {
+            &self.svg_colors
+        };
         let svg = match self.config.chart {
             ChartKind::Ring => {
                 let latest = self.latest_sample();
@@ -558,28 +563,25 @@ impl TempGraph {
                     .round()
                     .clamp(0.0, max) as u8;
 
-                crate::svg_graph::ring(
-                    &value,
-                    percentage,
-                    None,
-                    if self.disabled {
-                        &self.disabled_colors
-                    } else {
-                        &self.svg_colors
-                    },
-                )
+                crate::svg_graph::ring(&value, percentage, None, colors)
             }
-            ChartKind::Line => crate::svg_graph::line(
-                &self.samples,
-                self.max_temp,
-                if self.disabled {
-                    &self.disabled_colors
+            ChartKind::Line => {
+                if self.config.min_temp == 0.0 {
+                    crate::svg_graph::line(&self.samples, self.max_temp, colors)
                 } else {
-                    &self.svg_colors
-                },
-            ),
+                    let normalized =
+                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
+                    crate::svg_graph::line(&normalized, self.max_temp, colors)
+                }
+            }
             ChartKind::Heat => {
-                crate::svg_graph::heat(&self.samples, self.max_temp as u64, &self.svg_colors)
+                if self.config.min_temp == 0.0 {
+                    crate::svg_graph::heat(&self.samples, self.max_temp as u64, colors)
+                } else {
+                    let normalized =
+                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
+                    crate::svg_graph::heat(&normalized, self.max_temp as u64, colors)
+                }
             }
             ChartKind::StackedBars => {
                 log::error!("StackedBars not supported for GpuTemp");
@@ -1062,10 +1064,7 @@ impl Gpu {
                 )
                 .align_y(Center),
             )
-            .push_maybe(match self.config.temp.chart {
-                ChartKind::Ring => Some(settings::item(fl!("min-temperature"), min_temp_input)),
-                _ => None,
-            })
+            .push(settings::item(fl!("min-temperature"), min_temp_input))
             .spacing(cosmic.space_xs()),
         ));
 

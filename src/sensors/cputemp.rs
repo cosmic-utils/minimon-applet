@@ -20,7 +20,7 @@ use cosmic::{
 use log::info;
 
 use crate::app::Message;
-use std::any::Any;
+use std::{any::Any, collections::VecDeque};
 
 use bounded_vec_deque::BoundedVecDeque;
 use std::{
@@ -300,8 +300,24 @@ impl Sensor for CpuTemp {
 
                 crate::svg_graph::ring(&value, percentage, None, &self.svg_colors)
             }
-            ChartKind::Line => crate::svg_graph::line(&self.samples, max, &self.svg_colors),
-            ChartKind::Heat => crate::svg_graph::heat(&self.samples, max as u64, &self.svg_colors),
+            ChartKind::Line => {
+                if self.config.min_temp == 0.0 {
+                    crate::svg_graph::line(&self.samples, max, &self.svg_colors)
+                } else {
+                    let normalized =
+                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
+                    crate::svg_graph::line(&normalized, max, &self.svg_colors)
+                }
+            }
+            ChartKind::Heat => {
+                if self.config.min_temp == 0.0 {
+                    crate::svg_graph::heat(&self.samples, max as u64, &self.svg_colors)
+                } else {
+                    let normalized =
+                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
+                    crate::svg_graph::heat(&normalized, max as u64, &self.svg_colors)
+                }
+            }
             ChartKind::StackedBars => {
                 log::error!("StackedBars not supported for CpuTemp");
                 INVALID_IMG.to_string()
@@ -389,10 +405,7 @@ impl Sensor for CpuTemp {
                 )
                 .align_y(Center),
             )
-            .push_maybe(match self.config.chart {
-                ChartKind::Ring => Some(settings::item(fl!("min-temperature"), min_temp_input)),
-                _ => None,
-            })
+            .push(settings::item(fl!("min-temperature"), min_temp_input))
             .spacing(cosmic.space_xs()),
         ));
 

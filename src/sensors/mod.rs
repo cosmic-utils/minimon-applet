@@ -1,6 +1,6 @@
 use cosmic::Element;
 use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
+use std::{collections::VecDeque, sync::LazyLock};
 
 use crate::{
     config::{ColorVariant, GpuConfig},
@@ -115,7 +115,10 @@ impl From<usize> for TempUnit {
             1 => TempUnit::Farenheit,
             2 => TempUnit::Kelvin,
             3 => TempUnit::Rankine,
-            _ => { log::error!("Invalid index for TempUnit"); TempUnit::Celsius},
+            _ => {
+                log::error!("Invalid index for TempUnit");
+                TempUnit::Celsius
+            }
         }
     }
 }
@@ -129,4 +132,33 @@ impl From<TempUnit> for usize {
             TempUnit::Rankine => 3,
         }
     }
+}
+
+fn normalize_temps_dynamic(samples: &VecDeque<f64>, floor: f64) -> VecDeque<f64> {
+    // Find the maximum value in the samples; if empty, just return empty.
+    let Some(&max_sample) = samples.iter().max_by(|a, b| a.partial_cmp(b).unwrap()) else {
+        return VecDeque::new();
+    };
+
+    // Effective ceiling is the max of floor, the max_sample and 100.0.
+    let ceiling = max_sample.max(floor).max(100.0);
+
+    // If ceiling == floor, everything is at or below the floor -> all zeros.
+    if ceiling <= floor {
+        return samples.iter().map(|_| 0.0).collect();
+    }
+
+    let range = ceiling - floor;
+
+    samples
+        .iter()
+        .map(|&x| {
+            if x <= floor {
+                0.0
+            } else {
+                // Scale floor..=ceiling -> 0.0..=100.0
+                ((x - floor) / range) * 100.0
+            }
+        })
+        .collect()
 }
