@@ -290,13 +290,7 @@ impl Sensor for Cpu {
                 INVALID_IMG.to_string()
             }
         };
-
-        let icon = cosmic::widget::icon::from_svg_bytes(svg.into_bytes());
-        Container::new(
-            icon.icon()
-                .height(cosmic::iced::Length::Fill)
-                .width(cosmic::iced::Length::Fill),
-        )
+        super::svg_icon_container::<Message>(svg)
     }
 
     fn settings_ui(&'_ self) -> Element<'_, crate::app::Message> {

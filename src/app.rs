@@ -472,9 +472,9 @@ impl cosmic::Application for Minimon {
 
         let button = widget::button::custom(wrapper)
             .padding(if horizontal {
-                [0, self.core.applet.suggested_padding(true)]
+                [0, self.core.applet.suggested_padding(true).1]
             } else {
-                [self.core.applet.suggested_padding(true), 0]
+                [self.core.applet.suggested_padding(true).0, 0]
             })
             .class(cosmic::theme::Button::AppletIcon)
             .on_press(Message::TogglePopup);

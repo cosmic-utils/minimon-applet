@@ -172,13 +172,7 @@ impl GpuGraph {
                 },
             )
         };
-
-        widget::Container::new(
-            cosmic::widget::icon::from_svg_bytes(svg.into_bytes())
-                .icon()
-                .height(cosmic::iced::Length::Fill)
-                .width(cosmic::iced::Length::Fill),
-        )
+        super::svg_icon_container::<Message>(svg)
     }
 
     pub fn latest_sample(&self) -> f64 {
@@ -392,12 +386,7 @@ impl VramGraph {
                 },
             )
         };
-        let icon = cosmic::widget::icon::from_svg_bytes(svg.into_bytes());
-        Container::new(
-            icon.icon()
-                .height(cosmic::iced::Length::Fill)
-                .width(cosmic::iced::Length::Fill),
-        )
+        super::svg_icon_container::<Message>(svg)
     }
 
     pub fn latest_sample(&self) -> f64 {
@@ -588,13 +577,7 @@ impl TempGraph {
                 INVALID_IMG.to_string()
             }
         };
-        let icon = cosmic::widget::icon::from_svg_bytes(svg.into_bytes());
-
-        Container::new(
-            icon.icon()
-                .height(cosmic::iced::Length::Fill)
-                .width(cosmic::iced::Length::Fill),
-        )
+        super::svg_icon_container::<Message>(svg)
     }
 
     pub fn latest_sample(&self) -> f64 {

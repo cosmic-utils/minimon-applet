@@ -1,4 +1,5 @@
-use cosmic::Element;
+use cosmic::{Element, Renderer, Theme};
+use cosmic::{iced::Length, widget::Container};
 use serde::{Deserialize, Serialize};
 use std::{collections::VecDeque, sync::LazyLock};
 
@@ -132,6 +133,17 @@ impl From<TempUnit> for usize {
             TempUnit::Rankine => 3,
         }
     }
+}
+
+pub fn svg_icon_container<'a, Message>(
+    svg: String,
+) -> cosmic::widget::Container<'a, crate::app::Message, Theme, Renderer>
+where
+    Message: 'a,
+{
+    let icon = cosmic::widget::icon::from_svg_bytes(svg.as_bytes().to_vec()).symbolic(false);
+
+    Container::new(icon.icon().height(Length::Fill).width(Length::Fill))
 }
 
 fn normalize_temps_dynamic(samples: &VecDeque<f64>, floor: f64) -> VecDeque<f64> {

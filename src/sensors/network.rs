@@ -253,12 +253,7 @@ impl Sensor for Network {
                 crate::svg_graph::line_adaptive(&self.upload, GRAPH_SAMPLES, &cols, self.max_y)
             }
         };
-        let icon = cosmic::widget::icon::from_svg_bytes(svg.into_bytes());
-        widget::Container::new(
-            icon.icon()
-                .height(cosmic::iced::Length::Fill)
-                .width(cosmic::iced::Length::Fill),
-        )
+        super::svg_icon_container::<Message>(svg)
     }
 
     fn settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
