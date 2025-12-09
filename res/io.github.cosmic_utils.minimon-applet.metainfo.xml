@@ -70,7 +70,19 @@
     <internet>always</internet>
   </recommends>
   <releases>
-  <release version="0.9.0" date="2025-10-20">
+    <release version="1.0.0" date="2025-12-09">
+      <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.0.0</url>
+      <description>
+        <p>What's new:</p>
+        <ul>
+          <li>Add degree character to temperatures.</li>
+          <li>Add configurable temperature floor.</li>
+          <li>Retrace frame on line charts so the graph doesn't cover it.</li>
+          <li>Save content order to disk.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.9.0" date="2025-10-20">
       <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.9.0</url>
       <description>
         <p>What's new:</p>
@@ -82,6 +94,7 @@
         </ul>
       </description>
     </release>
+    
     <release version="0.8.1" date="2025-09-14">
       <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.8.1</url>
       <description>
