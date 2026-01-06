@@ -24,6 +24,7 @@
   <summary xml:lang="da">En tilpasselig systemovervågnings-applet til COSMIC</summary>
   <summary xml:lang="nl">Een aanpasbare systeemmonitor-applet voor COSMIC</summary>
   <summary xml:lang="sv">Ett anpassningsbart systemövervakningsprogram för COSMIC</summary>
+  <summary xml:lang="pl">Konfigurowalny aplet Monitorowania Systemu dla środowiska COSMIC</summary>
   <summary xml:lang="pt-BR">Um miniaplicativo personalizável de monitoramento do sistema para o COSMIC</summary>
   <summary xml:lang="zh-CN">一个可自定义的 COSMIC 系统监控小程序</summary>
   <description>
@@ -36,6 +37,7 @@
     <p xml:lang="da">En letvægts hardwaresystemovervågning til COSMIC-skrivebordsmiljøet med brugerflade til tilpasning. Viser information om CPU, GPU, netværk, hukommelse og diskforbrug.</p>
     <p xml:lang="nl">Een lichtgewicht hardwaremonitor-applet voor de COSMIC-desktopomgeving met een interface voor aanpassing. Toont informatie over CPU-, GPU-, netwerk-, geheugen- en schijfgebruik.</p>
     <p xml:lang="sv">Ett lättviktigt hårdvaruövervakningsprogram för COSMIC-skrivbordsmiljön med ett anpassningsbart gränssnitt. Visar information om CPU-, GPU-, nätverks-, minnes- och diskanvändning.</p>
+    <p xml:lang="pl">Lekki aplet monitorujący hardware dla środowiska graficznego COSMIC z konfigurowalnym interfejsem użytkownika. Pokazuje informacje o CPU, GPU, sieci, pamięci i użyciu dysku.</p>
     <p xml:lang="pt-BR">Um miniaplicativo leve de monitoramento de hardware para o ambiente de área de trabalho COSMIC com interface personalizável. Mostra informações sobre uso de CPU, GPU, rede, memória e disco.</p>
     <p xml:lang="zh-CN">一个适用于 COSMIC 桌面环境的轻量级硬件监控小程序，带有可自定义的界面。显示有关 CPU、GPU、网络、内存和磁盘使用情况的信息。</p>
   </description>
@@ -53,6 +55,7 @@
       <caption xml:lang="da">En formateret instans af applet med vinduesvisning åben.</caption>
       <caption xml:lang="nl">Een opgemaakte instantie van de applet met het venster geopend.</caption>
       <caption xml:lang="sv">Ett formaterat exempel på programmet med fönstervyn öppen.</caption>
+      <caption xml:lang="pl">Przykładowa konfiguracja z otwartym widokiem okna. </caption>
       <caption xml:lang="pt-BR">Uma instância estilizada do miniaplicativo com a visualização da janela aberta.</caption>
       <caption xml:lang="zh-CN">小程序的一个样式化实例，窗口视图已打开。</caption>
      </screenshot>
