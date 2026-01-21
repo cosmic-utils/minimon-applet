@@ -10,5 +10,6 @@ Categories=COSMIC
 Keywords=Monitor;System;CPU;GPU;Memory;Network;Disk;
 Keywords[ar]=نظام;معالج;معالج الرسوميات;ذاكرة;شبكة;قرص;مراقب;مرقاب;
 Keywords[hu]=Rendszer;CPU;GPU;Memória;Hálózat;Lemez;
+Keywords[pl]=Monitorowanie;CPU;GPU;Pamięć;Sieć;Dyski;
 X-CosmicApplet=true
 X-CosmicHoverPopup=Auto
