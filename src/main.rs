@@ -42,7 +42,7 @@ fn setup_logger() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(debug_assertions))]
     {
         let dispatch = fern::Dispatch::new()
-            .level(log::LevelFilter::Warn)
+            .level(log::LevelFilter::Error)
             .level_for("cosmic_applet_minimon", log::LevelFilter::Debug);
 
         // Try to use systemd journal first
