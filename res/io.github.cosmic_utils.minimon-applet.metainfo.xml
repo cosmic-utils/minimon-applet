@@ -17,6 +17,7 @@
     <color type="primary" scheme_preference="dark">#2b2b2b</color>
   </branding>
   <summary>A Customizable System Monitor applet for COSMIC</summary>
+  <summary xml:lang="cs">Přizpůsobitelný applet pro sledování systému v prostředí COSMIC</summary>
   <summary xml:lang="fr">Un applet de surveillance du système personnalisable pour COSMIC</summary>
   <summary xml:lang="es">Un applet de monitor del sistema personalizable para COSMIC</summary>
   <summary xml:lang="ar">تطبيق مصغر لمراقبة النظام قابل للتخصيص لـ COSMIC</summary>
@@ -29,6 +30,7 @@
   <summary xml:lang="zh-CN">一个可自定义的 COSMIC 系统监控小程序</summary>
   <description>
     <p>A lightweight hardware monitoring applet for the COSMIC desktop environment with UI for customization. Shows information on CPU, GPU, network, memory, and disk usage.</p>
+    <p xml:lang="cs">Nenáročný applet pro sledování hardwaru v prostředí COSMIC s uživatelským rozhraním pro přizpůsobení. Zobrazuje informace o využití CPU, GPU, sítě, paměti a disku.</p>
     <p xml:lang="fr">Un applet l�ger de surveillance du mat�riel pour l\u2019environnement de bureau COSMIC, avec une interface utilisateur pour la personnalisation. Affiche des informations sur l\u2019utilisation du processeur, du GPU, du r�seau, de la m�moire et du disque.</p>
     <p xml:lang="es">Un applet ligero de monitoreo de hardware para el entorno de escritorio COSMIC, con una interfaz de usuario para la personalizaci�n. Muestra informaci�n sobre el uso de la CPU, GPU, red, memoria y disco.</p>
     <p xml:lang="ar">تطبيق مراقبة أجهزة خفيف لبيئة سطح المكتب COSMIC مع واجهة مستخدم للتخصيص. يعرض معلومات حول استخدام المعالج، معالج الرسوميات، والشبكة، والذاكرة، والقرص.</p>
@@ -48,6 +50,7 @@
       <image>
         https://raw.githubusercontent.com/cosmic-utils/minimon-applet/main/res/screenshots/main_expanded_styled.png</image>
       <caption>A styled instance of the applet with with the window view open.</caption>
+      <caption xml:lang="cs">Stylizovaná instance appletu s otevřeným oknem náhledu.</caption>
       <caption xml:lang="fr">Un exemple stylisé de l’applet avec la vue de la fenêtre ouverte.</caption>
       <caption xml:lang="es">Un ejemplo con estilo del applet con la vista de la ventana abierta.</caption>
       <caption xml:lang="ar">نُسخة منسقة للبرنامج الصغير مع عرض النافذة مفتوحًا.</caption>

@@ -9,6 +9,7 @@ Icon=io.github.cosmic_utils.minimon-applet
 Categories=COSMIC
 Keywords=Monitor;System;CPU;GPU;Memory;Network;Disk;
 Keywords[ar]=نظام;معالج;معالج الرسوميات;ذاكرة;شبكة;قرص;مراقب;مرقاب;
+Keywords[cs]=Monitorování;Systém;CPU;GPU;Paměť;Síť;Disk;
 Keywords[hu]=Rendszer;CPU;GPU;Memória;Hálózat;Lemez;
 Keywords[pl]=Monitorowanie;CPU;GPU;Pamięć;Sieć;Dyski;
 X-CosmicApplet=true
