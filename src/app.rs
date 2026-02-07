@@ -295,6 +295,8 @@ impl cosmic::Application for Minimon {
             info!("Is laptop");
         }
 
+        LazyLock::force(&SYSMON_LIST);
+
         // Find GPUs
         let gpus: BTreeMap<String, Gpu> = list_gpus()
             .into_iter()
