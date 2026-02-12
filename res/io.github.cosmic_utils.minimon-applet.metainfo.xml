@@ -76,6 +76,20 @@
     <internet>always</internet>
   </recommends>
   <releases>
+    <release version="1.0.1" date="2026-02-12">
+      <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.0.1</url>
+      <description>
+        <p>What's new:</p>
+        <ul>
+          <li>Update Polish translations.</li>
+          <li>Add German translations.</li>
+          <li>Update Hungarian translations.</li>
+          <li>Add Czech translations.</li>
+          <li>Fix delay first time the popup menu is opened.</li>
+          <li>Remove "Path Stroking failed" log warnings in release builds.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2025-12-09">
       <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.0.0</url>
       <description>
@@ -86,60 +100,6 @@
           <li>Retrace frame on line charts so the graph doesn't cover it.</li>
           <li>Save content order to disk.</li>
         </ul>
-      </description>
-    </release>
-    <release version="0.9.0" date="2025-10-20">
-      <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.9.0</url>
-      <description>
-        <p>What's new:</p>
-        <ul>
-          <li>Option to show total Allocated memory on charts. This includes system cache, buffers, etc.</li>
-          <li>Saves colors for each chart separately, e.g. for line and ring chart for a sensor.</li>
-          <li>Fix: Line charts can now adjust opacity shading in the full range.</li>
-          <li>Various cosmetic adjustments.</li>
-        </ul>
-      </description>
-    </release>
-    
-    <release version="0.8.1" date="2025-09-14">
-      <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.8.1</url>
-      <description>
-        <p>What's new:</p>
-        <ul>
-          <li>Arabic and Hungarian translations.</li>
-          <li>Added missing keys to existing translations, fix typos in English.</li>
-          <li>Fix layout problem with button to change colors.</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.8.0" date="2025-08-07">
-      <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.8.0</url>
-      <description>
-        <p>What's new:</p>
-        <ul>
-          <li>Updated Polish translation.</li>
-          <li>Labels on the panel should not wobble/cause movement anymore.</li>
-          <li>Experimental support for the Zenpower module for AMD Ryzen.</li>
-          <li>A bar chart showing CPU core utilizaion, stacked into user+system for each core.</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.7.0" date="2025-07-25">
-      <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.7.0</url>
-      <description>
-        <p>What's new:</p>
-        <ul>
-          <li>Add option for data rates in B/s instead of bps for Networking.</li>
-          <li>Fix bug where no System Monitor could be found when using the Flatpak package.</li>
-          <li>Instead of hard coded list of System Monitors find them via .desktop files.</li>
-          <li>Add tipping/coffee button in general settings.</li>
-        </ul>
-      </description>
-    </release>
-    <release version="0.6.0" date="2025-06-23">
-      <url type="details">https://github.com/cosmic-utils/minimon-applet/releases/tag/v0.6.0</url>
-      <description>
-        <p>Official Flatpak release!</p>
       </description>
     </release>
   </releases>
