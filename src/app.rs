@@ -311,7 +311,7 @@ impl cosmic::Application for Minimon {
 
         let is_horizontal = core.applet.is_horizontal();
 
-        let app = Minimon {
+        let mut app = Minimon {
             core,
             cpu: Cpu::new(is_horizontal),
             cputemp: CpuTemp::default(),
@@ -337,6 +337,15 @@ impl cosmic::Application for Minimon {
             label_disks_width: None,
             label_w_width: None,
         };
+
+        let config: MinimonConfig =
+            cosmic::cosmic_config::Config::new(Self::APP_ID, MinimonConfig::VERSION)
+                .map(|context| match CosmicConfigEntry::get_entry(&context) {
+                    Ok(config) => config,
+                    Err((_errors, config)) => config,
+                })
+                .unwrap_or_default();
+        app.config_changed(&config);
 
         (app, Task::none())
     }
@@ -1254,6 +1263,7 @@ impl cosmic::Application for Minimon {
 
 impl Minimon {
     fn config_changed(&mut self, config: &MinimonConfig) {
+        info!("Updating state with configuration data");
         self.config = config.clone();
         let rr = self.config.refresh_rate;
         self.refresh_rate.store(rr, atomic::Ordering::Relaxed);
