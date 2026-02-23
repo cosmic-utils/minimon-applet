@@ -39,7 +39,7 @@ Then, proceed to your preferred app store and search for Minimon.
 
 ### From package manager
 
-If on a .deb based distibution download [latest version](https://github.com/Hyperchaotic/minimon-applet/releases) and install with the following commands:
+If on a .deb based distibution download [latest version](https://github.com/cosmic-utils/minimon-applet/releases) and install with the following commands:
 
 ```sh
 sudo dpkg -i cosmic-applet-minimon_0.3.10_amd64.deb
