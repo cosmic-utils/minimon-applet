@@ -318,9 +318,9 @@ impl Sensor for Cpu {
             let width = StackedBarSvg::new(self.config.bar_width, 60, self.config.bar_spacing)
                 .width(self.core_count());
             cpu_column.push(Element::from(row!(
-                widget::horizontal_space(),
+                widget::space::horizontal(),
                 self.chart(60, width).height(60).width(width),
-                widget::horizontal_space()
+                widget::space::horizontal()
             )));
         };
 
@@ -381,7 +381,7 @@ impl Sensor for Cpu {
                 settings::item(
                     fl!("cpu-no-decimals"),
                     row!(
-                        widget::checkbox("", config.no_decimals)
+                        widget::checkbox(config.no_decimals)
                             .on_toggle(Message::ToggleCpuNoDecimals)
                     ),
                 )
@@ -399,7 +399,7 @@ impl Sensor for Cpu {
                     Message::SelectGraphType(DeviceKind::Cpu, choice)
                 })
                 .width(70),
-                widget::horizontal_space(),
+                widget::space::horizontal(),
                 widget::button::standard(fl!("change-colors")).on_press(Message::ColorPickerOpen(
                     DeviceKind::Cpu,
                     cpu_kind,

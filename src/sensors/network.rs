@@ -336,7 +336,7 @@ impl Sensor for Network {
             settings::item(
                 fl!("use-adaptive"),
                 row!(
-                    widget::checkbox("", config.adaptive)
+                    widget::checkbox(config.adaptive)
                         .on_toggle(move |t| Message::ToggleAdaptiveNet(k, t))
                 ),
             )
@@ -363,13 +363,13 @@ impl Sensor for Network {
 
         net_bandwidth_items.push(
             row!(
-                widget::horizontal_space(),
+                widget::space::horizontal(),
                 widget::button::standard(fl!("change-colors")).on_press(Message::ColorPickerOpen(
                     DeviceKind::Network(self.config.variant),
                     ChartKind::Line,
                     None
                 )),
-                widget::horizontal_space()
+                widget::space::horizontal()
             )
             .into(),
         );

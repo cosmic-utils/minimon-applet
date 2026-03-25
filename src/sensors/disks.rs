@@ -312,13 +312,13 @@ impl Sensor for Disks {
 
         disk_bandwidth_items.push(
             row!(
-                widget::horizontal_space(),
+                widget::space::horizontal(),
                 widget::button::standard(fl!("change-colors")).on_press(Message::ColorPickerOpen(
                     DeviceKind::Disks(self.config.variant),
                     ChartKind::Line,
                     None
                 )),
-                widget::horizontal_space()
+                widget::space::horizontal()
             )
             .into(),
         );

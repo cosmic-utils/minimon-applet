@@ -392,7 +392,7 @@ impl Sensor for CpuTemp {
                         Message::SelectGraphType(DeviceKind::CpuTemp, m.into())
                     },)
                     .width(70),
-                    widget::horizontal_space(),
+                    widget::space::horizontal(),
                     widget::button::standard(fl!("change-colors")).on_press(
                         Message::ColorPickerOpen(DeviceKind::CpuTemp, temp_kind, None)
                     ),

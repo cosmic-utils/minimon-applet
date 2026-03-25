@@ -883,7 +883,7 @@ impl Gpu {
                         Message::GpuSelectGraphType(id.clone(), DeviceKind::Gpu, m.into())
                     },)
                     .width(70),
-                    widget::horizontal_space(),
+                    widget::space::horizontal(),
                     widget::button::standard(fl!("change-colors")).on_press(
                         Message::ColorPickerOpen(DeviceKind::Gpu, gpu_kind, Some(self.id())),
                     )
@@ -949,7 +949,7 @@ impl Gpu {
                         Message::GpuSelectGraphType(id.clone(), DeviceKind::Vram, m.into())
                     },)
                     .width(70),
-                    widget::horizontal_space(),
+                    widget::space::horizontal(),
                     widget::button::standard(fl!("change-colors")).on_press(
                         Message::ColorPickerOpen(DeviceKind::Vram, mem_kind, Some(self.id())),
                     )
@@ -1040,7 +1040,7 @@ impl Gpu {
                         Message::GpuSelectGraphType(id2.clone(), DeviceKind::GpuTemp, m.into())
                     },)
                     .width(70),
-                    widget::horizontal_space(),
+                    widget::space::horizontal(),
                     widget::button::standard(fl!("change-colors")).on_press(
                         Message::ColorPickerOpen(DeviceKind::GpuTemp, temp_kind, Some(self.id())),
                     )
@@ -1069,7 +1069,7 @@ impl Gpu {
             Some(
                 settings::item(
                     fl!("settings-disable-on-battery"),
-                    widget::checkbox("", config.pause_on_battery).on_toggle(move |value| {
+                    widget::checkbox(config.pause_on_battery).on_toggle(move |value| {
                         Message::ToggleDisableOnBattery(self.id().clone(), value)
 
                         //widget::toggler(config.pause_on_battery).on_toggle(move |value| {

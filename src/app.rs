@@ -6,17 +6,18 @@ use cosmic::cosmic_theme::palette::bool_mask::BoolMask;
 use cosmic::cosmic_theme::palette::{FromColor, WithAlpha};
 use cosmic::iced::advanced::graphics::text::cosmic_text::{Buffer, FontSystem, Metrics, Shaping};
 use cosmic::iced::alignment::Horizontal::{self};
+use cosmic::iced_core::text::Wrapping;
 use cosmic::iced_winit::graphics::text::cosmic_text::Attrs;
 
 use std::collections::{BTreeMap, VecDeque};
 use std::{fs, time};
 
 use cosmic::app::{Core, Task};
-use cosmic::iced::Limits;
 use cosmic::iced::platform_specific::shell::wayland::commands::popup::{destroy_popup, get_popup};
 use cosmic::iced::window::Id;
 use cosmic::iced::{self, Subscription};
-use cosmic::widget::{button, container, horizontal_space, list, settings, spin_button, text};
+use cosmic::iced::{Length, Limits};
+use cosmic::widget::{button, container, list, settings, space, spin_button, text};
 use cosmic::{Apply, Element};
 use cosmic::{widget, widget::autosize};
 
@@ -358,7 +359,7 @@ impl cosmic::Application for Minimon {
         &mut self.core
     }
 
-    fn style(&self) -> Option<cosmic::iced_runtime::Appearance> {
+    fn style(&self) -> Option<cosmic::iced::theme::Style> {
         Some(cosmic::applet::style())
     }
 
@@ -616,11 +617,11 @@ impl cosmic::Application for Minimon {
             } else {
                 if let Some(sysmon) = get_sysmon(&self.config.sysmon) {
                     content = content.push(Element::from(row!(
-                        widget::horizontal_space(),
+                        widget::space::horizontal(),
                         widget::button::standard(sysmon.name.to_owned())
                             .on_press(Message::LaunchSystemMonitor(sysmon))
                             .trailing_icon(widget::button::link::icon()),
-                        widget::horizontal_space()
+                        widget::space::horizontal()
                     )));
                 }
 
@@ -1338,13 +1339,11 @@ impl Minimon {
     pub fn go_next_with_item<'a, Msg: Clone + 'static>(
         description: &'a str,
         item: impl Into<cosmic::Element<'a, Msg>>,
-        msg_opt: impl Into<Option<Msg>> + Clone,
+        msg_opt: impl Into<Option<Msg>>,
     ) -> cosmic::Element<'a, Msg> {
         settings::item_row(vec![
-            widget::text::body(description)
-                .wrapping(iced::core::text::Wrapping::Word)
-                .into(),
-            widget::horizontal_space().into(),
+            text::body(description).wrapping(Wrapping::Word).into(),
+            space::horizontal().into(),
             widget::row::with_capacity(2)
                 .push(item)
                 .push(widget::icon::from_name("go-next-symbolic").size(16).icon())
@@ -1352,10 +1351,13 @@ impl Minimon {
                 .spacing(cosmic::theme::spacing().space_s)
                 .into(),
         ])
+        .width(Length::Fill)
         .apply(widget::container)
         .class(cosmic::theme::Container::List)
-        .apply(widget::button::custom)
+        .width(Length::Fill)
+        .apply(button::custom)
         .padding(0)
+        .width(Length::Fill)
         .class(cosmic::theme::Button::Transparent)
         .on_press_maybe(msg_opt.into())
         .into()
@@ -1375,7 +1377,7 @@ impl Minimon {
                 "Minimon version {} for COSMIC.",
                 env!("CARGO_PKG_VERSION")
             )),
-            horizontal_space(),
+            space::horizontal(),
             heart.on_press(Message::Tip)
         );
         // Create settings rows
@@ -1406,7 +1408,7 @@ impl Minimon {
         let mono_row = settings::item(
             fl!("settings-monospace_font"),
             row!(
-                widget::checkbox("", self.config.monospace_labels)
+                widget::checkbox(self.config.monospace_labels)
                     .on_toggle(Message::ToggleMonospaceLabels)
             ),
         );
@@ -1491,7 +1493,7 @@ impl Minimon {
 
         let content_order = row!(
             text(fl!("content-order")),
-            horizontal_space(),
+            space::horizontal(),
             content_items
         );
 
@@ -1677,7 +1679,7 @@ impl Minimon {
                 .push(format_label(self.network1.download_label(sample_rate_ms, unit_len)).into());
 
             if nw_combined {
-                network_labels.push(widget::vertical_space().into());
+                network_labels.push(widget::space::vertical().into());
             }
 
             network_labels.push(Row::from_vec(dl_row).into());
@@ -1693,7 +1695,7 @@ impl Minimon {
                 );
 
                 network_labels.push(Row::from_vec(ul_row).into());
-                network_labels.push(widget::vertical_space().into());
+                network_labels.push(widget::space::vertical().into());
             }
 
             elements.push_back(Column::from_vec(network_labels).into());
@@ -1766,7 +1768,7 @@ impl Minimon {
             wr_row.push(format_label(self.disks1.write_label(sample_rate_ms, unit_len)).into());
 
             if disks_combined {
-                disks_labels.push(widget::vertical_space().into());
+                disks_labels.push(widget::space::vertical().into());
             }
 
             disks_labels.push(Row::from_vec(wr_row).spacing(0).padding(0).into());
@@ -1779,7 +1781,7 @@ impl Minimon {
                 rd_row.push(format_label(self.disks1.read_label(sample_rate_ms, unit_len)).into());
 
                 disks_labels.push(Row::from_vec(rd_row).spacing(0).padding(0).into());
-                disks_labels.push(widget::vertical_space().into());
+                disks_labels.push(widget::space::vertical().into());
             }
 
             elements.push_back(Column::from_vec(disks_labels).into());
@@ -1842,11 +1844,11 @@ impl Minimon {
 
             if stacked_labels {
                 let gpu_labels = vec![
-                    widget::vertical_space().into(),
+                    widget::space::vertical().into(),
                     self.figure_label(formatted_gpu, self.label_gpu_width)
                         .into(),
                     self.figure_label(formatted_vram.clone(), None).into(),
-                    widget::vertical_space().into(),
+                    widget::space::vertical().into(),
                 ];
                 elements.push_back(Column::from_vec(gpu_labels).into());
             } else if config.usage.label_visible() {

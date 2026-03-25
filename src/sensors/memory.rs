@@ -323,7 +323,7 @@ impl Sensor for Memory {
                     fl!("memory-show-allocated"),
                     toggler(config.show_allocated).on_toggle(Message::ToggleMemoryAllocated)
                 ),
-                row!(widget::Space::with_width(15), expl),
+                row!(widget::Space::new().width(15), expl),
                 settings::item(
                     fl!("enable-label"),
                     toggler(config.label_visible())
@@ -339,7 +339,7 @@ impl Sensor for Memory {
                         Message::SelectGraphType(DeviceKind::Memory, m.into())
                     },)
                     .width(70),
-                    widget::horizontal_space(),
+                    widget::space::horizontal(),
                     widget::button::standard(fl!("change-colors"))
                         .on_press(Message::ColorPickerOpen(DeviceKind::Memory, mem_kind, None)),
                 )

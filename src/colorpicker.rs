@@ -360,10 +360,10 @@ impl ColorPicker {
                     Message::ColorPickerSelectVariant,
                 ));
                 if children1.len() < 6 {
-                    children1.push(widget::horizontal_space().width(20).into());
+                    children1.push(widget::space::horizontal().width(20).into());
                     children1.push(wgt);
                 } else {
-                    children2.push(widget::horizontal_space().width(20).into());
+                    children2.push(widget::space::horizontal().width(20).into());
                     children2.push(wgt);
                 }
             }
@@ -389,70 +389,70 @@ impl ColorPicker {
                 .add(column!(
                     Element::from(
                         row!(
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::svg(widget::svg::Handle::from_memory(RED_RECT.as_bytes()))
                                 .height(20),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             ColorPicker::color_slider(
                                 color.red,
                                 Message::ColorPickerSliderRedChanged,
                                 &COLOR_STOPS_RED_LOW,
                                 &COLOR_STOPS_RED_HIGH
                             ),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::text_input("", color.red.to_string())
                                 .width(50)
                                 .on_input(Message::ColorTextInputRedChanged),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                         )
                         .align_y(Alignment::Center)
                     ),
                     Element::from(
                         row!(
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::svg(widget::svg::Handle::from_memory(GREEN_RECT.as_bytes()))
                                 .height(20),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             ColorPicker::color_slider(
                                 color.green,
                                 Message::ColorPickerSliderGreenChanged,
                                 &COLOR_STOPS_GREEN_LOW,
                                 &COLOR_STOPS_GREEN_HIGH
                             ),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::text_input("", color.green.to_string())
                                 .width(50)
                                 .on_input(Message::ColorTextInputGreenChanged),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                         )
                         .align_y(Alignment::Center)
                     ),
                     Element::from(
                         row!(
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::svg(widget::svg::Handle::from_memory(BLUE_RECT.as_bytes()))
                                 .height(20),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             ColorPicker::color_slider(
                                 color.blue,
                                 Message::ColorPickerSliderBlueChanged,
                                 &COLOR_STOPS_BLUE_LOW,
                                 &COLOR_STOPS_BLUE_HIGH
                             ),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::text_input("", color.blue.to_string())
                                 .width(50)
                                 .on_input(Message::ColorTextInputBlueChanged),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                         )
                         .align_y(Alignment::Center)
                     ),
                     Element::from(
                         row!(
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::svg(widget::svg::Handle::from_memory(ALPHA_RECT.as_bytes()))
                                 .height(20),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::slider(
                                 0..=255,
                                 color.alpha,
@@ -460,11 +460,11 @@ impl ColorPicker {
                             )
                             .width(Length::Fixed(220.0))
                             .step(1),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::text_input("", color.alpha.to_string())
                                 .width(50)
                                 .on_input(Message::ColorTextInputAlphaChanged),
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                         )
                         .align_y(Alignment::Center)
                     ),
@@ -478,7 +478,7 @@ impl ColorPicker {
                         widget::button::standard(fl!("colorpicker-accent"))
                             .on_press(Message::ColorPickerAccent),
                         row!(
-                            widget::horizontal_space(),
+                            widget::space::horizontal(),
                             widget::button::destructive(fl!("colorpicker-cancel"))
                                 .on_press(Message::ColorPickerClose(false, dmo.id())),
                             widget::button::suggested(fl!("colorpicker-save"))

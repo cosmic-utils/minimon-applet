@@ -28,7 +28,7 @@ fn setup_logger() -> Result<(), Box<dyn std::error::Error>> {
             .format(|out, message, record| {
                 out.finish(format_args!(
                     "{} [{}] {}",
-                    Local::now().format("%H:%M:%S"),
+                    Local::now().format("%H:%M:%S.%f"),
                     record.level(),
                     message
                 ));
