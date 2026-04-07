@@ -381,6 +381,11 @@ impl Sensor for CpuTemp {
                         .on_toggle(|value| { Message::ToggleCpuTempLabel(value) }),
                 ),
                 settings::item(
+                    fl!("enable-icon"),
+                    toggler(config.icon_visible())
+                        .on_toggle(|value| { Message::ToggleCpuTempIcon(value) }),
+                ),
+                settings::item(
                     fl!("temperature-unit"),
                     widget::dropdown(&self.unit_options, selected_unit, |m| {
                         Message::SelectCpuTempUnit(m.into())

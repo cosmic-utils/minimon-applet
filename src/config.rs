@@ -270,6 +270,7 @@ macro_rules! make_config {
         pub struct $name {
             chart_visible: bool,
             label_visible: bool,
+            icon_visible: bool,
             pub chart: ChartKind,
             colors: Colors,
             $($extra)*
@@ -285,11 +286,17 @@ macro_rules! make_config {
             pub fn label_visible(&self) -> bool {
                 self.label_visible
             }
+            pub fn icon_visible(&self) -> bool {
+                self.icon_visible
+            }
             pub fn show_chart(&mut self, visible: bool) {
                 self.chart_visible = visible;
             }
             pub fn show_label(&mut self, visible: bool) {
                 self.label_visible = visible;
+            }
+            pub fn show_icon(&mut self, visible: bool) {
+                self.icon_visible = visible;
             }
             pub fn colors(&self) -> &ChartColors {
                 self.colors.get(self.chart)
@@ -312,6 +319,7 @@ impl Default for CpuConfig {
         Self {
             chart_visible: true,
             label_visible: false,
+            icon_visible: true,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Cpu),
             no_decimals: false,
@@ -331,6 +339,7 @@ impl Default for CpuTempConfig {
         Self {
             chart_visible: false,
             label_visible: false,
+            icon_visible: true,
             chart: ChartKind::Heat,
             colors: Colors::new(DeviceKind::CpuTemp),
             unit: TempUnit::Celsius,
@@ -350,6 +359,7 @@ impl Default for MemoryConfig {
         Self {
             chart_visible: true,
             label_visible: false,
+            icon_visible: true,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Memory),
             percentage: false,
@@ -379,6 +389,7 @@ impl Default for NetworkConfig {
         Self {
             chart_visible: true,
             label_visible: false,
+            icon_visible: true,
             chart: ChartKind::Line,
             colors: Colors::new(DeviceKind::Network(NetworkVariant::Combined)),
             adaptive: true,
@@ -406,6 +417,7 @@ impl Default for DisksConfig {
         Self {
             chart_visible: false,
             label_visible: false,
+            icon_visible: true,
             chart: ChartKind::Line,
             colors: Colors::new(DeviceKind::Disks(DisksVariant::Combined)),
             variant: DisksVariant::Combined,
@@ -420,6 +432,7 @@ impl Default for GpuUsageConfig {
         Self {
             chart_visible: true,
             label_visible: false,
+            icon_visible: true,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Gpu),
         }
@@ -433,6 +446,7 @@ impl Default for GpuVramConfig {
         Self {
             chart_visible: true,
             label_visible: false,
+            icon_visible: true,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Vram),
         }
@@ -449,6 +463,7 @@ impl Default for GpuTempConfig {
         Self {
             chart_visible: false,
             label_visible: false,
+            icon_visible: true,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::GpuTemp),
             unit: TempUnit::Celsius,
@@ -537,7 +552,6 @@ pub struct MinimonConfig {
 
     pub sysmon: Option<String>,
 
-    pub symbols: bool,
     pub panel_spacing: u16,
 
     pub content_order: ContentOrder,
@@ -570,7 +584,6 @@ impl Default for MinimonConfig {
             },
             gpus: HashMap::new(),
             sysmon: None,
-            symbols: false,
             panel_spacing: 3, // Slider setting for cosmic.space_xs()
             content_order: ContentOrder::default(),
         }

@@ -376,6 +376,13 @@ impl Sensor for Cpu {
             )
             .into(),
         );
+        cpu_column.push(
+            settings::item(
+                fl!("enable-icon"),
+                toggler(config.icon_visible()).on_toggle(Message::ToggleCpuIcon),
+            )
+            .into(),
+        );
         if self.config.label_visible() {
             cpu_column.push(
                 settings::item(

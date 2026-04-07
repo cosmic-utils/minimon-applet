@@ -226,6 +226,7 @@ pub enum Message {
     ToggleNetCombined(bool),
     ToggleNetChart(NetworkVariant, bool),
     ToggleNetLabel(NetworkVariant, bool),
+    ToggleNetIcon(NetworkVariant, bool),
     ToggleAdaptiveNet(NetworkVariant, bool),
     NetworkSelectUnit(NetworkVariant, usize),
     TextInputBandwidthChanged(NetworkVariant, String),
@@ -233,6 +234,7 @@ pub enum Message {
     ToggleDisksCombined(bool),
     ToggleDisksChart(DisksVariant, bool),
     ToggleDisksLabel(DisksVariant, bool),
+    ToggleDisksIcon(DisksVariant, bool),
 
     SelectGraphType(DeviceKind, ChartKind),
     Tick,
@@ -241,13 +243,16 @@ pub enum Message {
 
     ToggleCpuChart(bool),
     ToggleCpuLabel(bool),
+    ToggleCpuIcon(bool),
     ToggleCpuTempChart(bool),
     ToggleCpuTempLabel(bool),
+    ToggleCpuTempIcon(bool),
     ToggleCpuNoDecimals(bool),
     CpuBarSizeChanged(u16),
     CpuNarrowBarSpacing(bool),
     ToggleMemoryChart(bool),
     ToggleMemoryLabel(bool),
+    ToggleMemoryIcon(bool),
     ToggleMemoryPercentage(bool),
     ToggleMemoryAllocated(bool),
     ConfigChanged(Box<MinimonConfig>),
@@ -264,12 +269,12 @@ pub enum Message {
 
     GpuToggleChart(String, DeviceKind, bool),
     GpuToggleLabel(String, DeviceKind, bool),
+    GpuToggleIcon(String, bool),
     GpuToggleStackLabels(String, bool),
     GpuSelectGraphType(String, DeviceKind, ChartKind),
     SelectGpuTempUnit(String, TempUnit),
     GpuTempMinTempChanged(String, f64),
     ToggleDisableOnBattery(String, bool),
-    ToggleSymbols(bool),
     SysmonSelect(usize),
 
     ChangeContentOrder(ContentOrderChange),
@@ -907,6 +912,13 @@ impl cosmic::Application for Minimon {
                 self.save_config();
             }
 
+            Message::ToggleDisksIcon(variant, toggled) => {
+                info!("Message::ToggleDisksIcon({variant:?})");
+                let (_, config) = disks_select!(self, variant);
+                config.show_icon(toggled);
+                self.save_config();
+            }
+
             Message::ToggleAdaptiveNet(variant, toggle) => {
                 info!("Message::ToggleAdaptiveNet({variant:?}, {toggle:?})");
                 let (_network, config) = network_select!(self, variant);
@@ -1047,15 +1059,33 @@ impl cosmic::Application for Minimon {
                 self.save_config();
             }
 
+            Message::ToggleCpuIcon(toggled) => {
+                info!("Message::ToggleCpuIcon({toggled:?})");
+                self.config.cpu.show_icon(toggled);
+                self.save_config();
+            }
+
             Message::ToggleCpuTempLabel(toggled) => {
                 info!("Message::ToggleCpuTempLabel({toggled:?})");
                 self.config.cputemp.show_label(toggled);
                 self.save_config();
             }
 
+            Message::ToggleCpuTempIcon(toggled) => {
+                info!("Message::ToggleCpuTempIcon({toggled:?})");
+                self.config.cputemp.show_icon(toggled);
+                self.save_config();
+            }
+
             Message::ToggleMemoryLabel(toggled) => {
                 info!("Message::ToggleMemoryLabel({toggled:?})");
                 self.config.memory.show_label(toggled);
+                self.save_config();
+            }
+
+            Message::ToggleMemoryIcon(toggled) => {
+                info!("Message::ToggleMemoryIcon({toggled:?})");
+                self.config.memory.show_icon(toggled);
                 self.save_config();
             }
 
@@ -1075,6 +1105,13 @@ impl cosmic::Application for Minimon {
                 info!("Message::ToggleNetLabel({toggled:?})");
                 let (_, config) = network_select!(self, variant);
                 config.show_label(toggled);
+                self.save_config();
+            }
+
+            Message::ToggleNetIcon(variant, toggled) => {
+                info!("Message::ToggleNetIcon({toggled:?})");
+                let (_, config) = network_select!(self, variant);
+                config.show_icon(toggled);
                 self.save_config();
             }
 
@@ -1136,12 +1173,6 @@ impl cosmic::Application for Minimon {
                 self.save_config();
             }
 
-            Message::ToggleSymbols(toggle) => {
-                info!("Message::ToggleSymbols({toggle:?})");
-                self.config.symbols = toggle;
-                self.save_config();
-            }
-
             Message::Settings(setting) => {
                 info!("Message::Settings({setting:?})");
                 self.settings_page = setting;
@@ -1178,6 +1209,16 @@ impl cosmic::Application for Minimon {
                         _ => error!("GpuToggleLabel: wrong kind {device:?}"),
                     },
                 );
+            }
+
+            Message::GpuToggleIcon(id, toggled) => {
+                info!("Message::GpuToggleIcon({id:?}, {toggled:?})");
+                if let Some(c) = self.config.gpus.get_mut(&id) {
+                    c.usage.show_icon(toggled);
+                    self.save_config();
+                } else {
+                    error!("GpuToggleIcon: wrong id {id:?}");
+                }
             }
 
             Message::SelectGpuTempUnit(id, unit) => {
@@ -1413,11 +1454,6 @@ impl Minimon {
             ),
         );
 
-        let symbol_row = settings::item(
-            fl!("enable-symbols"),
-            widget::toggler(self.config.symbols).on_toggle(Message::ToggleSymbols),
-        );
-
         let spacing_row = settings::item(
             fl!("settings-panel-spacing"),
             widget::row::with_children(vec![
@@ -1503,7 +1539,6 @@ impl Minimon {
             refresh_row,
             label_row,
             mono_row,
-            symbol_row,
             spacing_row,
             sysmon_row,
             content_order
@@ -1536,8 +1571,7 @@ impl Minimon {
 
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
-        // Handle the symbols button if needed
-        if self.config.symbols
+        if self.config.cpu.icon_visible()
             && (self.config.cpu.label_visible() || self.config.cpu.chart_visible())
         {
             self.push_symbolic_icon(&mut elements, CPU_ICON, false);
@@ -1594,8 +1628,7 @@ impl Minimon {
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
         if self.cputemp.is_found() {
-            // Handle the symbols button if needed
-            if self.config.symbols
+            if self.config.cputemp.icon_visible()
                 && (self.config.cputemp.label_visible() || self.config.cputemp.chart_visible())
             {
                 self.push_symbolic_icon(&mut elements, TEMP_ICON, false);
@@ -1626,8 +1659,7 @@ impl Minimon {
 
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
-        // Handle the symbols button if needed
-        if self.config.symbols
+        if self.config.memory.icon_visible()
             && (self.config.memory.label_visible() || self.config.memory.chart_visible())
         {
             self.push_symbolic_icon(&mut elements, RAM_ICON, false);
@@ -1736,7 +1768,7 @@ impl Minimon {
             );
         }
 
-        if self.config.symbols && !elements.is_empty() {
+        if self.config.network1.icon_visible() && !elements.is_empty() {
             self.push_symbolic_icon(&mut elements, NETWORK_ICON, true);
         }
 
@@ -1820,7 +1852,7 @@ impl Minimon {
             );
         }
 
-        if self.config.symbols && !elements.is_empty() {
+        if self.config.disks1.icon_visible() && !elements.is_empty() {
             self.push_symbolic_icon(&mut elements, DISK_ICON, true);
         }
 
@@ -1878,8 +1910,10 @@ impl Minimon {
             }
         }
 
-        if self.config.symbols && !elements.is_empty() {
-            self.push_symbolic_icon(&mut elements, GPU_ICON, true);
+        if let Some(config) = self.config.gpus.get(&gpu.id()) {
+            if config.usage.icon_visible() && !elements.is_empty() {
+                self.push_symbolic_icon(&mut elements, GPU_ICON, true);
+            }
         }
 
         elements

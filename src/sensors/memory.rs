@@ -330,6 +330,11 @@ impl Sensor for Memory {
                         .on_toggle(|value| { Message::ToggleMemoryLabel(value) }),
                 ),
                 settings::item(
+                    fl!("enable-icon"),
+                    toggler(config.icon_visible())
+                        .on_toggle(|value| { Message::ToggleMemoryIcon(value) }),
+                ),
+                settings::item(
                     fl!("memory-as-percentage"),
                     toggler(config.percentage).on_toggle(Message::ToggleMemoryPercentage),
                 ),
