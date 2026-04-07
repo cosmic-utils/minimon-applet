@@ -371,6 +371,13 @@ impl Sensor for Cpu {
 
         cpu_column.push(
             settings::item(
+                fl!("enable-value"),
+                toggler(config.value_visible()).on_toggle(Message::ToggleCpuValue),
+            )
+            .into(),
+        );
+        cpu_column.push(
+            settings::item(
                 fl!("enable-label"),
                 toggler(config.label_visible()).on_toggle(Message::ToggleCpuLabel),
             )
@@ -383,7 +390,7 @@ impl Sensor for Cpu {
             )
             .into(),
         );
-        if self.config.label_visible() {
+        if self.config.value_visible() {
             cpu_column.push(
                 settings::item(
                     fl!("cpu-no-decimals"),

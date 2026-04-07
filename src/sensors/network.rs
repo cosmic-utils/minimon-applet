@@ -326,6 +326,14 @@ impl Sensor for Network {
         );
         net_bandwidth_items.push(
             settings::item(
+                fl!("enable-value"),
+                widget::toggler(config.value_visible())
+                    .on_toggle(move |t| Message::ToggleNetValue(k, t)),
+            )
+            .into(),
+        );
+        net_bandwidth_items.push(
+            settings::item(
                 fl!("enable-label"),
                 widget::toggler(config.label_visible())
                     .on_toggle(move |t| Message::ToggleNetLabel(k, t)),
