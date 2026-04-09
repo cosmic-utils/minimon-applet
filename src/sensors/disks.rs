@@ -309,6 +309,14 @@ impl Sensor for Disks {
             )
             .into(),
         );
+        disk_bandwidth_items.push(
+            settings::item(
+                fl!("enable-icon"),
+                widget::toggler(config.icon_visible())
+                    .on_toggle(move |t| Message::ToggleDisksIcon(k, t)),
+            )
+            .into(),
+        );
 
         disk_bandwidth_items.push(
             row!(

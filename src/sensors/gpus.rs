@@ -1082,6 +1082,13 @@ impl Gpu {
             None
         };
 
+        let icon_toggle = settings::item(
+            fl!("enable-icon"),
+            widget::toggler(config.usage.icon_visible()).on_toggle(move |value| {
+                Message::GpuToggleIcon(self.id().clone(), value)
+            }),
+        );
+
         let usage = self.settings_usage_ui(&config.usage);
         let vram = self.settings_vram_ui(&config.vram);
 
@@ -1102,6 +1109,7 @@ impl Gpu {
 
         Column::new()
             .push_maybe(battery_disable)
+            .push(icon_toggle)
             .push(usage)
             .push(temp)
             .push(vram)

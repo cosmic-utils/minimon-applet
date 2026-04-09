@@ -3,6 +3,7 @@ cpu-temperature-title = CPU Temperature
 temperature-unit = Temperature unit
 enable-chart = Show chart
 enable-label = Show label
+enable-icon = Show icon
 net-title = Network load
 net-title-combined = Network load in bits per second
 net-title-dl = Network download in bits per second

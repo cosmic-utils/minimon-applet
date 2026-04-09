@@ -334,6 +334,14 @@ impl Sensor for Network {
         );
         net_bandwidth_items.push(
             settings::item(
+                fl!("enable-icon"),
+                widget::toggler(config.icon_visible())
+                    .on_toggle(move |t| Message::ToggleNetIcon(k, t)),
+            )
+            .into(),
+        );
+        net_bandwidth_items.push(
+            settings::item(
                 fl!("use-adaptive"),
                 row!(
                     widget::checkbox(config.adaptive)
