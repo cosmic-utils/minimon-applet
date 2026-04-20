@@ -1652,13 +1652,13 @@ impl Minimon {
 
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
-        if self.config.cpu.icon_visible()
-            && (self.config.cpu.value_visible() || self.config.cpu.chart_visible())
-        {
+        let cpu_has_content = self.config.cpu.value_visible() || self.config.cpu.chart_visible();
+
+        if self.config.cpu.icon_visible() && cpu_has_content {
             self.push_symbolic_icon(&mut elements, CPU_ICON, false);
         }
 
-        if self.config.cpu.label_visible() {
+        if self.config.cpu.label_visible() && cpu_has_content {
             self.push_text_label(&mut elements, &fl!("label-cpu"));
         }
 
@@ -1712,13 +1712,14 @@ impl Minimon {
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
         if self.cputemp.is_found() {
-            if self.config.cputemp.icon_visible()
-                && (self.config.cputemp.value_visible() || self.config.cputemp.chart_visible())
-            {
+            let cputemp_has_content =
+                self.config.cputemp.value_visible() || self.config.cputemp.chart_visible();
+
+            if self.config.cputemp.icon_visible() && cputemp_has_content {
                 self.push_symbolic_icon(&mut elements, TEMP_ICON, false);
             }
 
-            if self.config.cputemp.label_visible() {
+            if self.config.cputemp.label_visible() && cputemp_has_content {
                 self.push_text_label(&mut elements, &fl!("label-cpu-temp"));
             }
 
@@ -1745,13 +1746,14 @@ impl Minimon {
 
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
-        if self.config.memory.icon_visible()
-            && (self.config.memory.value_visible() || self.config.memory.chart_visible())
-        {
+        let memory_has_content =
+            self.config.memory.value_visible() || self.config.memory.chart_visible();
+
+        if self.config.memory.icon_visible() && memory_has_content {
             self.push_symbolic_icon(&mut elements, RAM_ICON, false);
         }
 
-        if self.config.memory.label_visible() {
+        if self.config.memory.label_visible() && memory_has_content {
             self.push_text_label(&mut elements, &fl!("label-memory"));
         }
 
@@ -1789,7 +1791,13 @@ impl Minimon {
             network::UnitVariant::Short
         };
 
-        if self.config.network1.label_visible() {
+        let network_has_content = self.config.network1.value_visible()
+            || self.config.network1.chart_visible()
+            || (!nw_combined
+                && (self.config.network2.value_visible()
+                    || self.config.network2.chart_visible()));
+
+        if self.config.network1.label_visible() && network_has_content {
             self.push_text_label(&mut elements, &fl!("label-network"));
         }
 
@@ -1861,7 +1869,7 @@ impl Minimon {
             );
         }
 
-        if self.config.network1.icon_visible() && !elements.is_empty() {
+        if self.config.network1.icon_visible() && network_has_content {
             self.push_symbolic_icon(&mut elements, NETWORK_ICON, true);
         }
 
@@ -1883,7 +1891,12 @@ impl Minimon {
             disks::UnitVariant::Short
         };
 
-        if self.config.disks1.label_visible() {
+        let disks_has_content = self.config.disks1.value_visible()
+            || self.config.disks1.chart_visible()
+            || (!disks_combined
+                && (self.config.disks2.value_visible() || self.config.disks2.chart_visible()));
+
+        if self.config.disks1.label_visible() && disks_has_content {
             self.push_text_label(&mut elements, &fl!("label-disks"));
         }
 
@@ -1949,7 +1962,7 @@ impl Minimon {
             );
         }
 
-        if self.config.disks1.icon_visible() && !elements.is_empty() {
+        if self.config.disks1.icon_visible() && disks_has_content {
             self.push_symbolic_icon(&mut elements, DISK_ICON, true);
         }
 
@@ -1966,7 +1979,14 @@ impl Minimon {
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
         if let Some(config) = self.config.gpus.get(&gpu.id()) {
-            if config.usage.label_visible() {
+            let gpu_has_content = config.usage.value_visible()
+                || config.usage.chart_visible()
+                || config.temp.value_visible()
+                || config.temp.chart_visible()
+                || config.vram.value_visible()
+                || config.vram.chart_visible();
+
+            if config.usage.label_visible() && gpu_has_content {
                 self.push_text_label(&mut elements, &fl!("label-gpu"));
             }
 
@@ -2012,7 +2032,14 @@ impl Minimon {
         }
 
         if let Some(config) = self.config.gpus.get(&gpu.id()) {
-            if config.usage.icon_visible() && !elements.is_empty() {
+            let gpu_has_content = config.usage.value_visible()
+                || config.usage.chart_visible()
+                || config.temp.value_visible()
+                || config.temp.chart_visible()
+                || config.vram.value_visible()
+                || config.vram.chart_visible();
+
+            if config.usage.icon_visible() && gpu_has_content {
                 self.push_symbolic_icon(&mut elements, GPU_ICON, true);
             }
         }
