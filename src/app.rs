@@ -570,34 +570,58 @@ impl cosmic::Application for Minimon {
                         content = content.push(self.memory.settings_ui());
                     }
                     SettingsVariant::Network => {
+                        let net_variant = self.config.network1.variant;
                         content =
                             content.push(settings_sub_page_heading!(SETTINGS_NETWORK_HEADING));
                         content = content.push(settings::item(
                             fl!("enable-net-combined"),
-                            widget::toggler(
-                                self.config.network1.variant == NetworkVariant::Combined,
-                            )
-                            .on_toggle(Message::ToggleNetCombined),
+                            widget::toggler(net_variant == NetworkVariant::Combined)
+                                .on_toggle(Message::ToggleNetCombined),
                         ));
                         content = content.push(settings::item(
                             fl!("net-use-bytes"),
                             widget::toggler(self.config.network1.show_bytes)
                                 .on_toggle(Message::ToggleNetBytes),
                         ));
+                        content = content.push(settings::item(
+                            fl!("enable-label"),
+                            widget::toggler(self.config.network1.label_visible()).on_toggle(
+                                move |t| Message::ToggleNetLabel(net_variant, t),
+                            ),
+                        ));
+                        content = content.push(settings::item(
+                            fl!("enable-icon"),
+                            widget::toggler(self.config.network1.icon_visible()).on_toggle(
+                                move |t| Message::ToggleNetIcon(net_variant, t),
+                            ),
+                        ));
                         content = content.push(self.network1.settings_ui());
-                        if self.config.network1.variant == NetworkVariant::Download {
+                        if net_variant == NetworkVariant::Download {
                             content = content.push(self.network2.settings_ui());
                         }
                     }
                     SettingsVariant::Disks => {
+                        let disks_variant = self.config.disks1.variant;
                         content = content.push(settings_sub_page_heading!(SETTINGS_DISKS_HEADING));
                         content = content.push(settings::item(
                             fl!("enable-disks-combined"),
-                            widget::toggler(self.config.disks1.variant == DisksVariant::Combined)
+                            widget::toggler(disks_variant == DisksVariant::Combined)
                                 .on_toggle(Message::ToggleDisksCombined),
                         ));
+                        content = content.push(settings::item(
+                            fl!("enable-label"),
+                            widget::toggler(self.config.disks1.label_visible()).on_toggle(
+                                move |t| Message::ToggleDisksLabel(disks_variant, t),
+                            ),
+                        ));
+                        content = content.push(settings::item(
+                            fl!("enable-icon"),
+                            widget::toggler(self.config.disks1.icon_visible()).on_toggle(
+                                move |t| Message::ToggleDisksIcon(disks_variant, t),
+                            ),
+                        ));
                         content = content.push(self.disks1.settings_ui());
-                        if self.config.disks1.variant == DisksVariant::Write {
+                        if disks_variant == DisksVariant::Write {
                             content = content.push(self.disks2.settings_ui());
                         }
                     }
