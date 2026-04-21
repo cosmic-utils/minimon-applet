@@ -429,39 +429,34 @@ impl cosmic::Application for Minimon {
             }
         }
 
-        // If the applet is not visible, return an icon button to toggle the popup
-        if !self.data_is_visible {
-            return self
-                .core
-                .applet
-                .icon_button(ICON)
-                .on_press(Message::TogglePopup)
-                .into();
-        }
-
         // Build the full list of panel elements
         let mut elements: Vec<Element<Message>> = Vec::new();
 
-        for content in &self.config.content_order.order {
-            match content {
-                ContentType::CpuUsage => {
-                    elements.extend(self.cpu_panel_ui(horizontal));
-                }
-                ContentType::CpuTemp => {
-                    elements.extend(self.cpu_temp_panel_ui(horizontal));
-                }
-                ContentType::MemoryUsage => {
-                    elements.extend(self.memory_panel_ui(horizontal));
-                }
-                ContentType::NetworkUsage => {
-                    elements.extend(self.network_panel_ui(horizontal));
-                }
-                ContentType::DiskUsage => {
-                    elements.extend(self.disks_panel_ui(horizontal));
-                }
-                ContentType::GpuInfo => {
-                    for gpu in self.gpus.values() {
-                        elements.extend(self.gpu_panel_ui(gpu, horizontal));
+        // If the applet is not visible, return an icon button to toggle the popup
+        if !self.data_is_visible {
+            elements.extend(self.simple_ui());
+        } else {
+            for content in &self.config.content_order.order {
+                match content {
+                    ContentType::CpuUsage => {
+                        elements.extend(self.cpu_panel_ui(horizontal));
+                    }
+                    ContentType::CpuTemp => {
+                        elements.extend(self.cpu_temp_panel_ui(horizontal));
+                    }
+                    ContentType::MemoryUsage => {
+                        elements.extend(self.memory_panel_ui(horizontal));
+                    }
+                    ContentType::NetworkUsage => {
+                        elements.extend(self.network_panel_ui(horizontal));
+                    }
+                    ContentType::DiskUsage => {
+                        elements.extend(self.disks_panel_ui(horizontal));
+                    }
+                    ContentType::GpuInfo => {
+                        for gpu in self.gpus.values() {
+                            elements.extend(self.gpu_panel_ui(gpu, horizontal));
+                        }
                     }
                 }
             }
@@ -585,15 +580,13 @@ impl cosmic::Application for Minimon {
                         ));
                         content = content.push(settings::item(
                             fl!("enable-label"),
-                            widget::toggler(self.config.network1.label_visible()).on_toggle(
-                                move |t| Message::ToggleNetLabel(net_variant, t),
-                            ),
+                            widget::toggler(self.config.network1.label_visible())
+                                .on_toggle(move |t| Message::ToggleNetLabel(net_variant, t)),
                         ));
                         content = content.push(settings::item(
                             fl!("enable-icon"),
-                            widget::toggler(self.config.network1.icon_visible()).on_toggle(
-                                move |t| Message::ToggleNetIcon(net_variant, t),
-                            ),
+                            widget::toggler(self.config.network1.icon_visible())
+                                .on_toggle(move |t| Message::ToggleNetIcon(net_variant, t)),
                         ));
                         content = content.push(self.network1.settings_ui());
                         if net_variant == NetworkVariant::Download {
@@ -610,15 +603,13 @@ impl cosmic::Application for Minimon {
                         ));
                         content = content.push(settings::item(
                             fl!("enable-label"),
-                            widget::toggler(self.config.disks1.label_visible()).on_toggle(
-                                move |t| Message::ToggleDisksLabel(disks_variant, t),
-                            ),
+                            widget::toggler(self.config.disks1.label_visible())
+                                .on_toggle(move |t| Message::ToggleDisksLabel(disks_variant, t)),
                         ));
                         content = content.push(settings::item(
                             fl!("enable-icon"),
-                            widget::toggler(self.config.disks1.icon_visible()).on_toggle(
-                                move |t| Message::ToggleDisksIcon(disks_variant, t),
-                            ),
+                            widget::toggler(self.config.disks1.icon_visible())
+                                .on_toggle(move |t| Message::ToggleDisksIcon(disks_variant, t)),
                         ));
                         content = content.push(self.disks1.settings_ui());
                         if disks_variant == DisksVariant::Write {
@@ -1640,11 +1631,19 @@ impl Minimon {
 
     fn push_text_label(&self, elements: &mut VecDeque<Element<crate::app::Message>>, label: &str) {
         let size = self.config.value_size_default;
-        elements.push_back(
-            widget::text::body(label.to_string())
-                .size(size)
+        elements.push_back(widget::text::body(label.to_string()).size(size).into());
+    }
+
+    fn simple_ui(&'_ self) -> VecDeque<Element<'_, crate::app::Message>> {
+        let mut elements: VecDeque<Element<Message>> = VecDeque::new();
+        elements.push_front(
+            self.core
+                .applet
+                .icon_button(ICON)
+                .on_press(Message::TogglePopup)
                 .into(),
         );
+        elements
     }
 
     fn cpu_panel_ui(&'_ self, horizontal: bool) -> VecDeque<Element<'_, crate::app::Message>> {
@@ -1794,8 +1793,7 @@ impl Minimon {
         let network_has_content = self.config.network1.value_visible()
             || self.config.network1.chart_visible()
             || (!nw_combined
-                && (self.config.network2.value_visible()
-                    || self.config.network2.chart_visible()));
+                && (self.config.network2.value_visible() || self.config.network2.chart_visible()));
 
         if self.config.network1.label_visible() && network_has_content {
             self.push_text_label(&mut elements, &fl!("label-network"));
