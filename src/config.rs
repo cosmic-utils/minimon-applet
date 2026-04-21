@@ -269,6 +269,7 @@ macro_rules! make_config {
         #[version = 1]
         pub struct $name {
             chart_visible: bool,
+            value_visible: bool,
             label_visible: bool,
             icon_visible: bool,
             pub chart: ChartKind,
@@ -278,10 +279,13 @@ macro_rules! make_config {
 
        impl $name {
               pub fn visible(&self) -> bool {
-                self.chart_visible() || self.label_visible()
+                self.chart_visible() || self.value_visible()
             }
             pub fn chart_visible(&self) -> bool {
                 self.chart_visible
+            }
+            pub fn value_visible(&self) -> bool {
+                self.value_visible
             }
             pub fn label_visible(&self) -> bool {
                 self.label_visible
@@ -291,6 +295,9 @@ macro_rules! make_config {
             }
             pub fn show_chart(&mut self, visible: bool) {
                 self.chart_visible = visible;
+            }
+            pub fn show_value(&mut self, visible: bool) {
+                self.value_visible = visible;
             }
             pub fn show_label(&mut self, visible: bool) {
                 self.label_visible = visible;
@@ -318,6 +325,7 @@ impl Default for CpuConfig {
     fn default() -> Self {
         Self {
             chart_visible: true,
+            value_visible: false,
             label_visible: false,
             icon_visible: true,
             chart: ChartKind::Ring,
@@ -338,6 +346,7 @@ impl Default for CpuTempConfig {
     fn default() -> Self {
         Self {
             chart_visible: false,
+            value_visible: false,
             label_visible: false,
             icon_visible: true,
             chart: ChartKind::Heat,
@@ -351,20 +360,21 @@ impl Default for CpuTempConfig {
 make_config!(MemoryConfig {
     pub percentage: bool,
     pub show_allocated: bool,
-    pub stack_labels: bool,
+    pub stack_values: bool,
 });
 
 impl Default for MemoryConfig {
     fn default() -> Self {
         Self {
             chart_visible: true,
+            value_visible: false,
             label_visible: false,
             icon_visible: true,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Memory),
             percentage: false,
             show_allocated: false,
-            stack_labels: false, // future use
+            stack_values: false, // future use
         }
     }
 }
@@ -388,6 +398,7 @@ impl Default for NetworkConfig {
     fn default() -> Self {
         Self {
             chart_visible: true,
+            value_visible: false,
             label_visible: false,
             icon_visible: true,
             chart: ChartKind::Line,
@@ -416,6 +427,7 @@ impl Default for DisksConfig {
     fn default() -> Self {
         Self {
             chart_visible: false,
+            value_visible: false,
             label_visible: false,
             icon_visible: true,
             chart: ChartKind::Line,
@@ -431,6 +443,7 @@ impl Default for GpuUsageConfig {
     fn default() -> Self {
         Self {
             chart_visible: true,
+            value_visible: false,
             label_visible: false,
             icon_visible: true,
             chart: ChartKind::Ring,
@@ -445,6 +458,7 @@ impl Default for GpuVramConfig {
     fn default() -> Self {
         Self {
             chart_visible: true,
+            value_visible: false,
             label_visible: false,
             icon_visible: true,
             chart: ChartKind::Ring,
@@ -462,6 +476,7 @@ impl Default for GpuTempConfig {
     fn default() -> Self {
         Self {
             chart_visible: false,
+            value_visible: false,
             label_visible: false,
             icon_visible: true,
             chart: ChartKind::Ring,
@@ -479,7 +494,7 @@ pub struct GpuConfig {
     pub vram: GpuVramConfig,
     pub temp: GpuTempConfig,
     pub pause_on_battery: bool,
-    pub stack_labels: bool,
+    pub stack_values: bool,
 }
 
 impl GpuConfig {
@@ -495,7 +510,7 @@ impl Default for GpuConfig {
             vram: GpuVramConfig::default(),
             temp: GpuTempConfig::default(),
             pause_on_battery: true,
-            stack_labels: true,
+            stack_values: true,
         }
     }
 }
@@ -535,8 +550,8 @@ impl Default for ContentOrder {
 #[version = 1]
 pub struct MinimonConfig {
     pub refresh_rate: u32,
-    pub label_size_default: u16,
-    pub monospace_labels: bool,
+    pub value_size_default: u16,
+    pub monospace_values: bool,
 
     pub cpu: CpuConfig,
     pub cputemp: CpuTempConfig,
@@ -561,8 +576,8 @@ impl Default for MinimonConfig {
     fn default() -> Self {
         Self {
             refresh_rate: 1000,
-            label_size_default: 11,
-            monospace_labels: false,
+            value_size_default: 11,
+            monospace_values: false,
             cpu: CpuConfig::default(),
             cputemp: CpuTempConfig::default(),
             memory: MemoryConfig::default(),

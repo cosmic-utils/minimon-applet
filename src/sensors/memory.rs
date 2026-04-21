@@ -325,6 +325,11 @@ impl Sensor for Memory {
                 ),
                 row!(widget::Space::new().width(15), expl),
                 settings::item(
+                    fl!("enable-value"),
+                    toggler(config.value_visible())
+                        .on_toggle(|value| { Message::ToggleMemoryValue(value) }),
+                ),
+                settings::item(
                     fl!("enable-label"),
                     toggler(config.label_visible())
                         .on_toggle(|value| { Message::ToggleMemoryLabel(value) }),

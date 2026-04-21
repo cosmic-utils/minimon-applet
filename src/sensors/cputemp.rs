@@ -376,6 +376,11 @@ impl Sensor for CpuTemp {
                         .on_toggle(|value| { Message::ToggleCpuTempChart(value) }),
                 ),
                 settings::item(
+                    fl!("enable-value"),
+                    toggler(config.value_visible())
+                        .on_toggle(|value| { Message::ToggleCpuTempValue(value) }),
+                ),
+                settings::item(
                     fl!("enable-label"),
                     toggler(config.label_visible())
                         .on_toggle(|value| { Message::ToggleCpuTempLabel(value) }),

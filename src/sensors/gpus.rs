@@ -872,9 +872,9 @@ impl Gpu {
                     }),
                 ),
                 settings::item(
-                    fl!("enable-label"),
-                    toggler(config.label_visible()).on_toggle(move |value| {
-                        Message::GpuToggleLabel(self.id(), DeviceKind::Gpu, value)
+                    fl!("enable-value"),
+                    toggler(config.value_visible()).on_toggle(move |value| {
+                        Message::GpuToggleValue(self.id(), DeviceKind::Gpu, value)
                     }),
                 ),
                 row!(
@@ -938,9 +938,9 @@ impl Gpu {
                     }),
                 ),
                 settings::item(
-                    fl!("enable-label"),
-                    toggler(config.label_visible()).on_toggle(|value| {
-                        Message::GpuToggleLabel(self.id(), DeviceKind::Vram, value)
+                    fl!("enable-value"),
+                    toggler(config.value_visible()).on_toggle(|value| {
+                        Message::GpuToggleValue(self.id(), DeviceKind::Vram, value)
                     }),
                 ),
                 row!(
@@ -1023,9 +1023,9 @@ impl Gpu {
                     }),
                 ),
                 settings::item(
-                    fl!("enable-label"),
-                    toggler(config.label_visible()).on_toggle(|value| {
-                        Message::GpuToggleLabel(self.id(), DeviceKind::GpuTemp, value)
+                    fl!("enable-value"),
+                    toggler(config.value_visible()).on_toggle(|value| {
+                        Message::GpuToggleValue(self.id(), DeviceKind::GpuTemp, value)
                     }),
                 ),
                 settings::item(
@@ -1082,6 +1082,13 @@ impl Gpu {
             None
         };
 
+        let label_toggle = settings::item(
+            fl!("enable-label"),
+            widget::toggler(config.usage.label_visible()).on_toggle(move |value| {
+                Message::GpuToggleLabel(self.id().clone(), value)
+            }),
+        );
+
         let icon_toggle = settings::item(
             fl!("enable-icon"),
             widget::toggler(config.usage.icon_visible()).on_toggle(move |value| {
@@ -1092,12 +1099,12 @@ impl Gpu {
         let usage = self.settings_usage_ui(&config.usage);
         let vram = self.settings_vram_ui(&config.vram);
 
-        let stacked = if config.vram.label_visible() && config.usage.label_visible() {
+        let stacked = if config.vram.value_visible() && config.usage.value_visible() {
             Some(settings::item(
-                fl!("settings-gpu-stack-labels"),
+                fl!("settings-gpu-stack-values"),
                 row!(
-                    widget::toggler(config.stack_labels).on_toggle(move |value| {
-                        Message::GpuToggleStackLabels(self.id().clone(), value)
+                    widget::toggler(config.stack_values).on_toggle(move |value| {
+                        Message::GpuToggleStackValues(self.id().clone(), value)
                     })
                 ),
             ))
@@ -1109,6 +1116,7 @@ impl Gpu {
 
         Column::new()
             .push_maybe(battery_disable)
+            .push(label_toggle)
             .push(icon_toggle)
             .push(usage)
             .push(temp)
