@@ -12,7 +12,7 @@ use cosmic::{
         Alignment,
         widget::{column, row},
     },
-    iced_widget::Row,
+    widget::Row,
 };
 
 use super::TempUnit;
@@ -1084,16 +1084,14 @@ impl Gpu {
 
         let label_toggle = settings::item(
             fl!("enable-label"),
-            widget::toggler(config.usage.label_visible()).on_toggle(move |value| {
-                Message::GpuToggleLabel(self.id().clone(), value)
-            }),
+            widget::toggler(config.usage.label_visible())
+                .on_toggle(move |value| Message::GpuToggleLabel(self.id().clone(), value)),
         );
 
         let icon_toggle = settings::item(
             fl!("enable-icon"),
-            widget::toggler(config.usage.icon_visible()).on_toggle(move |value| {
-                Message::GpuToggleIcon(self.id().clone(), value)
-            }),
+            widget::toggler(config.usage.icon_visible())
+                .on_toggle(move |value| Message::GpuToggleIcon(self.id().clone(), value)),
         );
 
         let usage = self.settings_usage_ui(&config.usage);

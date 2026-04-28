@@ -1,6 +1,6 @@
 use bounded_vec_deque::BoundedVecDeque;
 
-use cosmic::{Element, iced_widget::Column, widget::Container};
+use cosmic::{Element, widget::Column, widget::Container, widget::Row};
 use log::info;
 use sysinfo::Networks;
 
@@ -15,12 +15,9 @@ use cosmic::widget;
 use cosmic::widget::settings;
 
 use crate::app::Message;
-use cosmic::{
-    iced::{
-        Alignment,
-        widget::{column, row},
-    },
-    iced_widget::Row,
+use cosmic::iced::{
+    Alignment,
+    widget::{column, row},
 };
 use std::any::Any;
 

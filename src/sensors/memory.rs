@@ -18,7 +18,7 @@ use cosmic::{
         Alignment,
         widget::{column, row},
     },
-    iced_widget::Row,
+    widget::Row,
 };
 
 use crate::app::Message;

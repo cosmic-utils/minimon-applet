@@ -374,8 +374,6 @@ impl ColorPicker {
             );
 
             let c = widget::list_column()
-                .padding(0)
-                .spacing(0)
                 .add(
                     widget::text::title2(title)
                         .width(Length::Fill)
@@ -470,7 +468,6 @@ impl ColorPicker {
                     ),
                 ))
                 .add(fields)
-                .spacing(10)
                 .add(
                     row!(
                         widget::button::standard(fl!("colorpicker-defaults"))

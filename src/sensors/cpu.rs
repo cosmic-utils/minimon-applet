@@ -8,19 +8,17 @@ use crate::{
 };
 use bounded_vec_deque::BoundedVecDeque;
 use cosmic::{
-    Element, Renderer, Theme, iced::Alignment::Center, iced_widget::Column, widget::Container,
+    Element, Renderer, Theme, iced::Alignment::Center, widget::Column, widget::Container,
+    widget::Row,
 };
 use std::{any::Any, sync::LazyLock};
 
 use cosmic::widget;
 use cosmic::widget::{settings, toggler};
 
-use cosmic::{
-    iced::{
-        Alignment,
-        widget::{column, row},
-    },
-    iced_widget::Row,
+use cosmic::iced::{
+    Alignment,
+    widget::{column, row},
 };
 
 use crate::app::Message;

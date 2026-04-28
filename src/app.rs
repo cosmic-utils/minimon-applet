@@ -6,8 +6,8 @@ use cosmic::cosmic_theme::palette::bool_mask::BoolMask;
 use cosmic::cosmic_theme::palette::{FromColor, WithAlpha};
 use cosmic::iced::advanced::graphics::text::cosmic_text::{Buffer, FontSystem, Metrics, Shaping};
 use cosmic::iced::alignment::Horizontal::{self};
-use cosmic::iced_core::text::Wrapping;
-use cosmic::iced_winit::graphics::text::cosmic_text::Attrs;
+use cosmic::iced::core::text::Wrapping;
+use cosmic::iced::program::graphics::text::cosmic_text::Attrs;
 
 use std::collections::{BTreeMap, VecDeque};
 use std::{fs, time};
@@ -17,7 +17,7 @@ use cosmic::iced::platform_specific::shell::wayland::commands::popup::{destroy_p
 use cosmic::iced::window::Id;
 use cosmic::iced::{self, Subscription};
 use cosmic::iced::{Length, Limits};
-use cosmic::widget::{button, container, list, settings, space, spin_button, text};
+use cosmic::widget::{Column, Row, button, container, list, settings, space, spin_button, text};
 use cosmic::{Apply, Element};
 use cosmic::{widget, widget::autosize};
 
@@ -27,8 +27,10 @@ use std::sync::atomic::{self, AtomicU32};
 
 use cosmic::{
     applet::cosmic_panel_config::PanelAnchor,
-    iced::{Alignment, widget::column, widget::row},
-    iced_widget::{Column, Row},
+    iced::{
+        Alignment,
+        widget::{column, row},
+    },
 };
 
 use zbus::blocking::Connection;
@@ -716,8 +718,7 @@ impl cosmic::Application for Minimon {
                         &SETTINGS_DISKS_CHOICE,
                         disks,
                         Message::Settings(Some(SettingsVariant::Disks)),
-                    ))
-                    .padding(0);
+                    ));
 
                 if self.has_gpus() {
                     for (key, gpu) in &self.gpus {
@@ -1806,8 +1807,14 @@ impl Minimon {
             if horizontal {
                 dl_row.push(self.figure_value("↓".to_owned(), None).into());
             }
-            dl_row
-                .push(format_value(self.network1.download_label(sample_rate_ms, unit_len)).into());
+            dl_row.push(
+                format_value(
+                    self.network1
+                        .download_label(sample_rate_ms, unit_len)
+                        .clone(),
+                )
+                .into(),
+            );
 
             if nw_combined {
                 network_values.push(widget::space::vertical().into());
@@ -2302,21 +2309,14 @@ impl Minimon {
         let font_size = self.label_font_size();
 
         let metrics = Metrics::new(font_size.into(), font_size.into());
-        // Create a buffer to shape the text
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
-        buffer.set_text(&mut self.font_system, text, attrs, Shaping::Advanced, None);
+        buffer.set_text(text, attrs, Shaping::Advanced, None);
+        buffer.shape_until_scroll(&mut self.font_system, false);
 
-        // Get the width of the first layout line
-        buffer
-            .lines
-            .first()
-            .and_then(|line| line.layout_opt())
-            .and_then(|layouts| layouts.first().map(|layout| layout.w.ceil() + 2.0))
+        buffer.layout_runs().next().map(|run| run.line_w.ceil())
     }
 
     fn calculate_max_label_widths(&mut self) {
-        // Yes there are two different Family types
-        // font::default() returns one and Attrs takes another
         use cosmic::iced::font::{Family as IcedFamily, Style as IcedStyle, Weight as IcedWeight};
         use iced::advanced::graphics::text::cosmic_text::{
             Family as CosmicTextFamily, Style as TextStyle, Weight as TextWeight,
