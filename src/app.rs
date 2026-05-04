@@ -356,7 +356,12 @@ impl cosmic::Application for Minimon {
             cosmic::cosmic_config::Config::new(Self::APP_ID, MinimonConfig::VERSION)
                 .map(|context| match CosmicConfigEntry::get_entry(&context) {
                     Ok(config) => config,
-                    Err((_errors, config)) => config,
+                    Err((errors, config)) => {
+                        for e in errors {
+                            log::warn!("Config issue: {:?}", e);
+                        }
+                        config
+                    }
                 })
                 .unwrap_or_default();
         app.config_changed(&config);

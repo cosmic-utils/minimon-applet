@@ -266,6 +266,7 @@ impl Colors {
 macro_rules! make_config {
     ($name:ident { $($extra:tt)* }) => {
         #[derive(Debug, Clone, Serialize, Deserialize, CosmicConfigEntry, PartialEq)]
+        #[serde(default)]
         #[version = 1]
         pub struct $name {
             chart_visible: bool,
