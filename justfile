@@ -8,7 +8,7 @@ debcontrol := debdir / 'control'
 
 id := `grep -m 1 -oP '(?<=<id>).*?(?=</id>)' $(ls ./res/*.xml | head -n 1)`
 summary := `grep -m 1 -oP '(?<=<summary>).*?(?=</summary>)' $(ls ./res/*.xml | head -n 1)`
-dev_name := `grep -m 1 -oP '(?<=<developer_name>).*?(?=</developer_name>)' $(ls ./res/*.xml | head -n 1)`
+dev_name := "hyperchaotic"
 email := `grep -m 1 -oP '(?<=<update_contact>).*?(?=</update_contact>)' $(ls ./res/*.xml | head -n 1)`
 
 export APPID := id
