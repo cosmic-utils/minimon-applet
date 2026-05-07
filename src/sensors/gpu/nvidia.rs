@@ -63,7 +63,7 @@ impl NvidiaGpu<'_> {
 
 impl super::GpuIf for NvidiaGpu<'_> {
     fn gpu_type(&self) -> GpuType {
-        GpuType::Intel
+        GpuType::Nvidia
     }
 
     fn restart(&mut self) {
