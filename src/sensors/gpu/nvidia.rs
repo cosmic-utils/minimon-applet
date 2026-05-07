@@ -2,20 +2,32 @@ use anyhow::{Context, Result, anyhow};
 use log::{debug, info, warn};
 use nvml_wrapper::{Device, Nvml, error::NvmlError};
 
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 
-use crate::sensors::gpus::Gpu;
+use crate::sensors::{gpu::GpuType, gpus::Gpu};
 
-pub static NVML: LazyLock<Result<Nvml, NvmlError>> = LazyLock::new(|| {
+static NVML: OnceLock<Nvml> = OnceLock::new();
+
+fn nvml() -> Result<&'static Nvml, NvmlError> {
+    if let Some(nvml) = NVML.get() {
+        return Ok(nvml);
+    }
+
     let nvml = Nvml::init();
 
-    if let Err(error) = nvml.as_ref() {
-        warn!("Connection to NVML failed, reason: {error}");
-    } else {
-        debug!("Successfully connected to NVML");
+    match nvml {
+        Ok(nvml_instance) => {
+            debug!("Successfully connected to NVML");
+
+            Ok(NVML.get_or_init(|| nvml_instance))
+        }
+
+        Err(error) => {
+            warn!("Connection to NVML failed, reason: {error}");
+            Err(error)
+        }
     }
-    nvml
-});
+}
 
 pub struct NvidiaGpu<'a> {
     // Index returned by NVML
@@ -31,7 +43,7 @@ impl NvidiaGpu<'_> {
         let mut device = None;
         let mut vram = 0;
 
-        if let Ok(nvml) = NVML.as_ref()
+        if let Ok(nvml) = nvml()
             && let Ok(dev) = nvml.device_by_index(index)
             && let Ok(mem) = dev.memory_info()
         {
@@ -50,9 +62,13 @@ impl NvidiaGpu<'_> {
 }
 
 impl super::GpuIf for NvidiaGpu<'_> {
+    fn gpu_type(&self) -> GpuType {
+        GpuType::Intel
+    }
+
     fn restart(&mut self) {
         if self.device.is_none()
-            && let Ok(nvml) = NVML.as_ref()
+            && let Ok(nvml) = nvml()
             && let Ok(dev) = nvml.device_by_index(self.index)
         {
             self.device = Some(dev);
@@ -130,7 +146,7 @@ impl NvidiaGpu<'_> {
     }
 
     pub fn uuid(idx: u32) -> Result<String> {
-        NVML.as_ref()
+        nvml()
             .context("unable to establish NVML connection")
             .and_then(|nvml| {
                 let dev = nvml.device_by_index(idx)?;
@@ -139,7 +155,7 @@ impl NvidiaGpu<'_> {
     }
 
     pub fn name(idx: u32) -> Result<String> {
-        NVML.as_ref()
+        nvml()
             .context("unable to establish NVML connection")
             .and_then(|nvml| {
                 let dev = nvml.device_by_index(idx)?;
@@ -148,7 +164,7 @@ impl NvidiaGpu<'_> {
     }
 
     fn gpus() -> Result<u32> {
-        NVML.as_ref()
+        nvml()
             .context("unable to establish NVML connection")
             .and_then(|nvml| nvml.device_count().context("failed to get GPU count"))
     }

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::LazyLock;
 
+use crate::sensors::gpu::GpuType;
 use crate::sensors::gpus::Gpu;
 //use log::{debug, warn};
 
@@ -238,6 +239,10 @@ impl AmdGpu {
 }
 
 impl super::GpuIf for AmdGpu {
+    fn gpu_type(&self) -> GpuType {
+        GpuType::Amd
+    }
+
     fn restart(&mut self) {
         debug!("AmdGpu::restart({}).", self.name);
         self.paused = false;

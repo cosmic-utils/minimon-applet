@@ -2,8 +2,10 @@ use bounded_vec_deque::BoundedVecDeque;
 use cosmic::iced::Alignment::Center;
 use cosmic::{Element, Renderer, Theme};
 use log::info;
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
+use crate::sensors::gpu::GpuType;
 use crate::sensors::{GpuConfig, INVALID_IMG};
 use cosmic::widget::{self, Column, Container};
 use cosmic::widget::{settings, toggler};
@@ -41,6 +43,94 @@ static DISABLED_COLORS: LazyLock<ChartColors> = LazyLock::new(|| ChartColors {
     color3: cosmic::cosmic_theme::palette::Srgba::from_components((0x72, 0x72, 0x72, 0xFF)),
     color4: cosmic::cosmic_theme::palette::Srgba::from_components((0x72, 0x72, 0x72, 0xFF)),
 });
+
+pub struct Gpus {
+    gpus: BTreeMap<String, Gpu>,
+    // nvidia_redetect_attempts: u8, // Test code
+}
+
+impl Gpus {
+    pub fn new(is_laptop: bool) -> Self {
+        let mut gpus = Self {
+            gpus: BTreeMap::new(),
+            //nvidia_redetect_attempts: 0,
+        };
+
+        gpus.redetect(GpuType::Intel, is_laptop);
+        gpus.redetect(GpuType::Nvidia, is_laptop);
+        gpus.redetect(GpuType::Amd, is_laptop);
+
+        gpus
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Gpu)> {
+        self.gpus.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&String, &mut Gpu)> {
+        self.gpus.iter_mut()
+    }
+
+    pub fn has_type(&self, gpu_type: GpuType) -> bool {
+        self.gpus.values().any(|gpu| gpu.gpu_type() == gpu_type)
+    }
+
+    pub fn redetect(&mut self, gpu_type: GpuType, is_laptop: bool) {
+        //Test code
+        //if gpu_type == GpuType::Nvidia && self.nvidia_redetect_attempts < 5 {
+        //    self.nvidia_redetect_attempts += 1;
+        //    return;
+        //}
+
+        let detected = match gpu_type {
+            GpuType::Intel => IntelGpu::get_gpus(),
+            GpuType::Nvidia => NvidiaGpu::get_gpus(),
+            GpuType::Amd => AmdGpu::get_gpus(),
+        };
+
+        for mut gpu in detected {
+            let id = gpu.id();
+
+            log::info!(
+                "Found GPU. Type: {:?}. Name: {}. UUID: {}",
+                gpu.gpu_type(),
+                gpu.name(),
+                id
+            );
+
+            // Skip duplicates
+            if self.gpus.contains_key(&id) {
+                log::info!("Already detected, skipping.");
+                continue;
+            }
+
+            if is_laptop {
+                gpu.set_laptop();
+            }
+
+            self.gpus.insert(id, gpu);
+        }
+    }
+    pub fn get(&self, id: &str) -> Option<&Gpu> {
+        self.gpus.get(id)
+    }
+
+    pub fn get_mut(&mut self, id: &str) -> Option<&mut Gpu> {
+        self.gpus.get_mut(id)
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &Gpu> {
+        self.gpus.values()
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut Gpu> {
+        self.gpus.values_mut()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.gpus.is_empty()
+    }
+}
 
 pub struct GpuGraph {
     id: String,
@@ -837,6 +927,10 @@ impl Gpu {
         self.gpu_if.is_active()
     }
 
+    pub fn gpu_type(&self) -> GpuType {
+        self.gpu_if.gpu_type()
+    }
+
     fn settings_usage_ui(
         &'_ self,
         config: &crate::config::GpuUsageConfig,
@@ -1123,15 +1217,6 @@ impl Gpu {
             .spacing(cosmic::theme::spacing().space_xs)
             .into()
     }
-}
-
-pub fn list_gpus() -> Vec<Gpu> {
-    let mut v: Vec<Gpu> = Vec::new();
-
-    v.extend(IntelGpu::get_gpus());
-    v.extend(NvidiaGpu::get_gpus());
-    v.extend(AmdGpu::get_gpus());
-    v
 }
 
 const DEMO_SAMPLES: [f64; 21] = [

@@ -47,7 +47,8 @@ use crate::config::{
 use crate::sensors::cpu::Cpu;
 use crate::sensors::cputemp::CpuTemp;
 use crate::sensors::disks::{self, Disks};
-use crate::sensors::gpus::{Gpu, list_gpus};
+use crate::sensors::gpu::GpuType;
+use crate::sensors::gpus::{Gpu, Gpus};
 use crate::sensors::memory::Memory;
 use crate::sensors::network::{self, Network};
 use crate::sensors::{Sensor, TempUnit};
@@ -55,6 +56,8 @@ use crate::system_monitors;
 use crate::{config::MinimonConfig, fl};
 
 use cosmic::widget::Id as WId;
+
+const NVIDIA_REDETECT_ATTEMPTS: u8 = 5;
 
 static AUTOSIZE_MAIN_ID: LazyLock<WId> = std::sync::LazyLock::new(|| WId::new("autosize-main"));
 
@@ -145,23 +148,18 @@ pub enum SettingsVariant {
 pub struct Minimon {
     /// Application state which is managed by the COSMIC runtime.
     core: Core,
-    /// The svg image to draw for the CPU load
-    cpu: Cpu,
-    /// The svg image to draw for the CPU load
-    cputemp: CpuTemp,
-    /// The svg image to draw for the Memory load
-    memory: Memory,
 
-    /// The network monitor, if combined we only use the first one
+    cpu: Cpu,
+    cputemp: CpuTemp,
+    memory: Memory,
     network1: Network,
     network2: Network,
-
-    /// The network monitor
     disks1: Disks,
     disks2: Disks,
+    gpus: Gpus,
 
-    //GPUs, in Btree so they're always ordered the same.
-    gpus: BTreeMap<String, Gpu>,
+    /// As the Nvidia runtime may be slow to load we trach number of retries
+    nvidia_redetect_attempts: u8,
 
     /// The popup id.
     popup: Option<Id>,
@@ -311,17 +309,7 @@ impl cosmic::Application for Minimon {
 
         LazyLock::force(&SYSMON_LIST);
 
-        // Find GPUs
-        let gpus: BTreeMap<String, Gpu> = list_gpus()
-            .into_iter()
-            .map(|mut gpu| {
-                info!("Found GPU. Name: {}. UUID: {}", gpu.name(), gpu.id());
-                if is_laptop {
-                    gpu.set_laptop();
-                }
-                (gpu.id().to_string(), gpu)
-            })
-            .collect();
+        let gpus = Gpus::new(is_laptop);
 
         let is_horizontal = core.applet.is_horizontal();
 
@@ -335,6 +323,7 @@ impl cosmic::Application for Minimon {
             disks1: Disks::default(),
             disks2: Disks::default(),
             gpus,
+            nvidia_redetect_attempts: 0,
             popup: None,
             settings_page: None,
             colorpicker: ColorPicker::default(),
@@ -726,8 +715,9 @@ impl cosmic::Application for Minimon {
                     ));
 
                 if self.has_gpus() {
-                    for (key, gpu) in &self.gpus {
+                    for (key, gpu) in self.gpus.iter() {
                         let temp = gpu.temp.to_string();
+
                         let info = widget::text::body(format!(
                             "{} {} / {:.2} GB {}",
                             gpu.gpu,
@@ -735,6 +725,7 @@ impl cosmic::Application for Minimon {
                             gpu.vram.total(),
                             temp
                         ));
+
                         sensor_settings = sensor_settings.add(Minimon::go_next_with_item(
                             &SETTINGS_GPU_CHOICE,
                             info,
@@ -1010,7 +1001,7 @@ impl cosmic::Application for Minimon {
                     if self.on_ac != current_on_ac {
                         self.on_ac = current_on_ac;
 
-                        for (id, gpu) in &mut self.gpus {
+                        for (id, gpu) in self.gpus.iter_mut() {
                             if let Some(c) = self.config.gpus.get(id)
                                 && c.pause_on_battery
                             {
@@ -2131,6 +2122,25 @@ impl Minimon {
     }
 
     fn refresh_stats(&mut self) {
+        // Redetect Nvidia GPUs if none found.
+        // Retry NVIDIA_REDETECT_ATTEMPTS times because Flatpak/NVML startup
+        // can race session initialization.
+        if !self.gpus.has_type(GpuType::Nvidia)
+            && self.nvidia_redetect_attempts < NVIDIA_REDETECT_ATTEMPTS
+        {
+            self.nvidia_redetect_attempts += 1;
+
+            info!(
+                "No Nvidia GPU detected, retry attempt {}",
+                self.nvidia_redetect_attempts
+            );
+
+            self.gpus.redetect(GpuType::Nvidia, self.is_laptop);
+
+            // Sync configs in case a new GPU appeared
+            self.sync_gpu_configs();
+        }
+
         // Update everything if popup open
         let all = self.popup.is_some();
 
@@ -2180,7 +2190,7 @@ impl Minimon {
 
     fn maybe_stop_gpus(&mut self) {
         if self.is_laptop && !self.on_ac {
-            for (id, gpu) in &mut self.gpus {
+            for (id, gpu) in self.gpus.iter_mut() {
                 if let Some(c) = self.config.gpus.get(id)
                     && c.pause_on_battery
                 {
@@ -2224,19 +2234,19 @@ impl Minimon {
         }
     }
 
-    // make sure our liust of detected GPUs and the config list are equal
     fn sync_gpu_configs(&mut self) {
         let config_gpus = &mut self.config.gpus;
 
         // Remove entries not present in detected GPUs
-        config_gpus.retain(|id, _| self.gpus.contains_key(id));
+        config_gpus.retain(|id, _| self.gpus.get(id).is_some());
 
         // Add missing GPU configs
-        for id in self.gpus.keys() {
+        for (id, _) in self.gpus.iter() {
             config_gpus.entry(id.clone()).or_default();
         }
 
-        for (id, gpu) in &mut self.gpus {
+        // Sync runtime config into GPU objects
+        for (id, gpu) in self.gpus.iter_mut() {
             if let Some(config) = config_gpus.get(id) {
                 gpu.update_config(config, self.config.refresh_rate);
             }

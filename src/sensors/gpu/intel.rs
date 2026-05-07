@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::sensors::gpu::GpuType;
 use crate::sensors::gpus::Gpu;
 //use log::{debug, warn};
 
@@ -16,6 +17,10 @@ impl IntelGpu {
 }
 
 impl super::GpuIf for IntelGpu {
+    fn gpu_type(&self) -> GpuType {
+        GpuType::Intel
+    }
+
     fn restart(&mut self) {
         todo!();
     }
