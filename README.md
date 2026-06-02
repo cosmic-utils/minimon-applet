@@ -42,7 +42,7 @@ Then, proceed to your preferred app store and search for Minimon.
 If on a .deb based distibution download [latest version](https://github.com/cosmic-utils/minimon-applet/releases) and install with the following commands:
 
 ```sh
-sudo dpkg -i cosmic-applet-minimon_0.3.10_amd64.deb
+sudo dpkg -i <name_of.deb>
 ```
 
 ### Post-installation
@@ -87,5 +87,5 @@ sudo dnf install <name_of.rpm>
 For checking logs:
 
 ```sh
-journalctl SYSLOG_IDENTIFIER=cosmic-applet-minimon
+journalctl SYSLOG_IDENTIFIER=cosmic-ext-applet-minimon
 ```

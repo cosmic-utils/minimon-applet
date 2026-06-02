@@ -4,7 +4,7 @@
   "runtime-version": "25.08",
   "sdk": "org.freedesktop.Sdk",
   "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
-  "command": "cosmic-applet-minimon",
+  "command": "cosmic-ext-applet-minimon",
   "finish-args": [
     "--socket=wayland",
     "--filesystem=xdg-config/cosmic:rw",
@@ -17,17 +17,17 @@
   "build-options": {
     "append-path": "/usr/lib/sdk/rust-stable/bin",
     "env": {
-      "CARGO_HOME": "/run/build/cosmic-applet-minimon/cargo"
+      "CARGO_HOME": "/run/build/cosmic-ext-applet-minimon/cargo"
     }
   },
   "modules": [
     {
-      "name": "cosmic-applet-minimon",
+      "name": "cosmic-ext-applet-minimon",
       "buildsystem": "simple",
       "build-commands": [
         "cargo --offline fetch --manifest-path Cargo.toml --verbose",
         "cargo --offline build --release --verbose",
-        "install -Dm0755 ./target/release/cosmic-applet-minimon /app/bin/cosmic-applet-minimon",
+        "install -Dm0755 ./target/release/cosmic-ext-applet-minimon /app/bin/cosmic-ext-applet-minimon",
         "install -Dm0644 ./res/io.github.cosmic_utils.minimon-applet.desktop /app/share/applications/io.github.cosmic_utils.minimon-applet.desktop",
         "install -Dm0644 ./res/io.github.cosmic_utils.minimon-applet.metainfo.xml /app/share/metainfo/io.github.cosmic_utils.minimon-applet.metainfo.xml",
         "install -Dm0644 ./res/icons/apps/io.github.cosmic_utils.minimon-applet.svg /app/share/icons/hicolor/scalable/apps/io.github.cosmic_utils.minimon-applet.svg",

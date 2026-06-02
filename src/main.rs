@@ -24,7 +24,7 @@ fn setup_logger() -> Result<(), Box<dyn std::error::Error>> {
         // Debug builds: use fern with stdout
         fern::Dispatch::new()
             .level(log::LevelFilter::Warn)
-            .level_for("cosmic_applet_minimon", log::LevelFilter::Debug)
+            .level_for("cosmic_ext_applet_minimon", log::LevelFilter::Debug)
             .format(|out, message, record| {
                 out.finish(format_args!(
                     "{} [{}] {}",
@@ -38,19 +38,19 @@ fn setup_logger() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // In release builds we log to the systemd journal with fern/stdout fallback
-    // To retrieve logs use "journalctl SYSLOG_IDENTIFIER=cosmic-applet-minimon"
+    // To retrieve logs use "journalctl SYSLOG_IDENTIFIER=cosmic-ext-applet-minimon"
     #[cfg(not(debug_assertions))]
     {
         let dispatch = fern::Dispatch::new()
             .level(log::LevelFilter::Error)
-            .level_for("cosmic_applet_minimon", log::LevelFilter::Debug);
+            .level_for("cosmic_ext_applet_minimon", log::LevelFilter::Debug);
 
         // Try to use systemd journal first
         match systemd_journal_logger::JournalLog::new() {
             Ok(journal_logger) => {
                 let journal_logger = journal_logger.with_extra_fields(vec![
                     ("VERSION", env!("CARGO_PKG_VERSION")),
-                    ("APPLET", "cosmic_applet_minimon"),
+                    ("APPLET", "cosmic_ext_applet_minimon"),
                 ]);
 
                 dispatch
@@ -61,7 +61,7 @@ fn setup_logger() -> Result<(), Box<dyn std::error::Error>> {
                 // Fallback to same fern logging as debug builds
                 fern::Dispatch::new()
                     .level(log::LevelFilter::Warn)
-                    .level_for("cosmic_applet_minimon", log::LevelFilter::Debug)
+                    .level_for("cosmic_ext_applet_minimon", log::LevelFilter::Debug)
                     .format(|out, message, record| {
                         out.finish(format_args!(
                             "{} [{}] {}",
@@ -84,7 +84,7 @@ fn main() -> cosmic::iced::Result {
 
     #[cfg(not(debug_assertions))]
     println!(
-        "In Release builds use 'journalctl SYSLOG_IDENTIFIER=cosmic-applet-minimon' to see logs"
+        "In Release builds use 'journalctl SYSLOG_IDENTIFIER=cosmic-ext-applet-minimon' to see logs"
     );
 
     info!("Application started");

@@ -898,29 +898,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cosmic-applet-minimon"
-version = "1.1.0"
-dependencies = [
- "anyhow",
- "bounded-vec-deque",
- "chrono",
- "fern",
- "hex",
- "i18n-embed",
- "i18n-embed-fl",
- "libcosmic",
- "log",
- "nvml-wrapper",
- "rust-embed",
- "serde",
- "sha2 0.11.0",
- "sysinfo",
- "systemd-journal-logger",
- "zbus",
- "zvariant",
-]
-
-[[package]]
 name = "cosmic-client-toolkit"
 version = "0.2.0"
 source = "git+https://github.com/pop-os/cosmic-protocols?rev=160b086#160b086abe03cd34a8a375d7fbe47b24308d1f38"
@@ -961,6 +938,29 @@ source = "git+https://github.com/pop-os/libcosmic.git#0e0960f3c79138b445ae84f7ac
 dependencies = [
  "quote",
  "syn",
+]
+
+[[package]]
+name = "cosmic-ext-applet-minimon"
+version = "1.1.0"
+dependencies = [
+ "anyhow",
+ "bounded-vec-deque",
+ "chrono",
+ "fern",
+ "hex",
+ "i18n-embed",
+ "i18n-embed-fl",
+ "libcosmic",
+ "log",
+ "nvml-wrapper",
+ "rust-embed",
+ "serde",
+ "sha2 0.11.0",
+ "sysinfo",
+ "systemd-journal-logger",
+ "zbus",
+ "zvariant",
 ]
 
 [[package]]
