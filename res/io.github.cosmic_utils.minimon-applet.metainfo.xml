@@ -142,6 +142,20 @@
 		<category>Utility</category>
 	</categories>
 	<releases>
+		<release version="1.1.1" date="2026-06-02">
+			<url
+                type="details"
+            >https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.1.1</url>
+			<description>
+				<p>What's new:</p>
+				<ul>
+                    <li>Add retry mechanism for connecting to NVML as first attempt may fail in Flatpak.</li>
+                    <li>Default symbolic icons to false.</li>
+                    <li>Change name of binary to cosmic-ext-applet-minimon.</li>
+                    <li>Update libcosmic.</li>
+				</ul>
+			</description>
+		</release>
 		<release version="1.1.0" date="2026-05-06">
 			<url
                 type="details"
@@ -157,6 +171,7 @@
 				</ul>
 			</description>
 		</release>
+        
 		<release version="1.0.1" date="2026-02-12">
 			<url
                 type="details"
