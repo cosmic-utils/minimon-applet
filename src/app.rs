@@ -69,7 +69,7 @@ const GPU_ICON: &str = "io.github.cosmic_utils.minimon-applet-gpu";
 const NETWORK_ICON: &str = "io.github.cosmic_utils.minimon-applet-network";
 const DISK_ICON: &str = "io.github.cosmic_utils.minimon-applet-harddisk";
 
-const DEFAULT_MONITOR: &str = "GNOME System Monitor";
+const DEFAULT_MONITOR: &str = "COSMIC System Monitor";
 
 pub static SETTINGS_CPU_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-cpu").leak());
