@@ -42,7 +42,10 @@ impl StackedBarSvg {
         let mut svg = String::new();
 
         // SVG header with COSMIC-friendly dark theme - width adapts to core count
-        let _ = writeln!(svg, r#"<svg width="{total_width}" height="{total_height}" viewBox="0 0 {total_width} {total_height}" xmlns="http://www.w3.org/2000/svg">"#);
+        let _ = writeln!(
+            svg,
+            r#"<svg width="{total_width}" height="{total_height}" viewBox="0 0 {total_width} {total_height}" xmlns="http://www.w3.org/2000/svg">"#
+        );
 
         // CSS styles with configurable colors
         let _ = writeln!(
@@ -61,10 +64,16 @@ impl StackedBarSvg {
             colors.background, colors.frame, colors.graph1, colors.graph2, colors.background,
         );
 
-        // Background with adaptive width
+        // Background with adaptive width. The rect is inset by 0.5 SVG units so the
+        // 1px stroke is centered on (0.5, 0.5)..(W-0.5, H-0.5), keeping the entire
+        // stroke inside the viewBox. Otherwise the outer half of the stroke would
+        // render beyond the SVG bounds and paint over the surrounding panel button.
+        let bg_w = f32::from(total_width) - 1.0;
+        let bg_h = f32::from(total_height) - 1.0;
         let _ = writeln!(
             svg,
-            r#"  <g clip-path="url(#rounded-clip)"><rect class="background" width="{total_width}" height="{total_height}" rx="4.5" ry="4.5"/>"#);
+            r#"  <g clip-path="url(#rounded-clip)"><rect class="background" x="0.5" y="0.5" width="{bg_w}" height="{bg_h}" rx="4" ry="4"/>"#
+        );
 
         for i in 0..cores.len() {
             if let Some(core) = cores.get(&i) {
