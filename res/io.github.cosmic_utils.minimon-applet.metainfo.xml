@@ -142,6 +142,18 @@
 		<category>Utility</category>
 	</categories>
 	<releases>
+		<release version="1.1.2" date="2026-06-29">
+			<url
+                type="details"
+            >https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.1.2</url>
+			<description>
+				<p>What's new:</p>
+				<ul>
+                    <li>Fix bar chart frame overflowing borders.</li>
+                    <li>Make COSMIC System Monitor default on new installs.</li>
+				</ul>
+			</description>
+		</release>
 		<release version="1.1.1" date="2026-06-02">
 			<url
                 type="details"
