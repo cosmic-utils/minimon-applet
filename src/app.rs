@@ -771,11 +771,41 @@ impl cosmic::Application for Minimon {
 
             Message::TogglePopup => {
                 info!("Message::TogglePopup");
+
                 if let Some(p) = self.popup.take() {
                     self.colorpicker.deactivate();
                     // but have to go back to sleep if settings closed
                     self.maybe_stop_gpus();
-                    return destroy_popup(p);
+                    return cosmic::surface::surface_task(cosmic::surface::action::destroy_popup(
+                        p,
+                    ));
+                } else {
+                    return cosmic::surface::surface_task(cosmic::surface::action::app_popup(
+                        |_| Default::default(),
+                        |app: &mut Minimon| {
+                            let new_id = Id::unique();
+                            app.popup.replace(new_id);
+
+                            let popup_settings = app.core.applet.get_popup_settings(
+                                app.core.main_window_id().unwrap(),
+                                new_id,
+                                Some((1, 1)),
+                                None,
+                                None,
+                            );
+                            popup_settings
+                        },
+                        None,
+                    ));
+                }
+                /*
+                if let Some(p) = self.popup.take() {
+                    self.colorpicker.deactivate();
+                    // but have to go back to sleep if settings closed
+                    self.maybe_stop_gpus();
+                    return cosmic::surface::surface_task(cosmic::surface::action::destroy_popup(
+                        p,
+                    ));
                 } else {
                     self.calculate_max_label_widths();
                     let new_id = Id::unique();
@@ -789,7 +819,7 @@ impl cosmic::Application for Minimon {
                         popup_settings.positioner.size_limits = Limits::NONE;
                         return get_popup(popup_settings);
                     }
-                };
+                };*/
             }
             Message::PopupClosed(id) => {
                 if self.popup.as_ref() == Some(&id) {

@@ -8,6 +8,7 @@
   "finish-args": [
     "--socket=wayland",
     "--filesystem=xdg-config/cosmic:rw",
+    "--talk-name=com.system76.CosmicSettingsDaemon.*",
     "--talk-name=com.system76.CosmicSettingsDaemon",
     "--filesystem=/sys/class/hwmon:ro",
     "--filesystem=/sys/class/drm:ro",
