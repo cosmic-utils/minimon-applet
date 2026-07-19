@@ -845,6 +845,18 @@ impl Gpu {
         }
     }
 
+    pub fn is_temp_found(&self) -> bool {
+        self.temp.latest_sample() > 0.0
+    }
+
+    pub fn is_usage_found(&self) -> bool {
+        self.gpu.latest_sample() > 0.0
+    }
+
+    pub fn is_vram_found(&self) -> bool {
+        self.vram.latest_sample() > 0.0
+    }
+
     pub fn update_config(&mut self, config: &dyn Any, refresh_rate: u32) {
         if let Some(cfg) = config.downcast_ref::<GpuConfig>() {
             self.config = cfg.clone();
@@ -1189,7 +1201,11 @@ impl Gpu {
         );
 
         let usage = self.settings_usage_ui(&config.usage);
-        let vram = self.settings_vram_ui(&config.vram);
+        let vram = if self.is_vram_found() {
+            Some(self.settings_vram_ui(&config.vram))
+        } else {
+            None
+        };
 
         let stacked = if config.vram.value_visible() && config.usage.value_visible() {
             Some(settings::item(
@@ -1204,15 +1220,19 @@ impl Gpu {
             None
         };
 
-        let temp = self.settings_temp_ui(&config.temp);
+        let temp = if self.is_temp_found() {
+            Some(self.settings_temp_ui(&config.temp))
+        } else {
+            None
+        };
 
         Column::new()
             .push_maybe(battery_disable)
             .push(label_toggle)
             .push(icon_toggle)
             .push(usage)
-            .push(temp)
-            .push(vram)
+            .push_maybe(temp)
+            .push_maybe(vram)
             .push_maybe(stacked)
             .spacing(cosmic::theme::spacing().space_xs)
             .into()

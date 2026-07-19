@@ -2042,22 +2042,22 @@ impl Minimon {
                 );
             }
 
-            if config.usage.chart_visible() {
+            if config.usage.chart_visible() && gpu.is_usage_found() {
                 elements.push_back(gpu.gpu.chart().height(size.0).width(size.1).into());
             }
-            if config.temp.value_visible() {
+            if config.temp.value_visible() && gpu.is_temp_found() {
                 elements.push_back(self.figure_value(gpu.temp.to_string(), None).into());
             }
 
-            if config.temp.chart_visible() {
+            if config.temp.chart_visible() && gpu.is_temp_found() {
                 elements.push_back(gpu.temp.chart().height(size.0).width(size.1).into());
             }
 
-            if config.vram.value_visible() && !stacked_values {
+            if config.vram.value_visible() && gpu.is_vram_found() && !stacked_values {
                 elements.push_back(self.figure_value(formatted_vram, None).into());
             }
 
-            if config.vram.chart_visible() {
+            if config.vram.chart_visible() && gpu.is_vram_found() {
                 elements.push_back(gpu.vram.chart().height(size.0).width(size.1).into());
             }
         }
