@@ -273,13 +273,26 @@ impl super::GpuIf for IntelGpu {
             return Ok(0);
         };
 
-        let elapsed_ms = u64::try_from(now.duration_since(previous.at).as_millis())
-            .unwrap_or(u64::MAX)
-            .max(1);
-        let idle_delta_ms = residency_ms.saturating_sub(previous.residency_ms);
-        let idle_percent = (idle_delta_ms.min(elapsed_ms) * 100) / elapsed_ms;
+        // CRITICAL FIX: Handle driver reload or sysfs counter reset
+        if residency_ms < previous.residency_ms {
+            return Ok(0);
+        }
 
-        Ok(100u32.saturating_sub(u32::try_from(idle_percent).unwrap_or(100)))
+        // Calculate deltas using high precision durations
+        let elapsed_secs = now.duration_since(previous.at).as_secs_f64();
+        let idle_delta_secs = (residency_ms - previous.residency_ms) as f64 / 1000.0;
+
+        // EDGE CASE 2: Mitigate clock-drift or division by zero on ultra-fast polls
+        if elapsed_secs < 0.001 {
+            return Ok(0); 
+        }
+
+        // Normalize ratio and cap it at 1.0 (100%) to safely negate hardware timing drift
+        let idle_ratio = (idle_delta_secs / elapsed_secs).clamp(0.0, 1.0);
+        let active_ratio = 1.0 - idle_ratio;
+
+        // Convert safely back to percentage integer
+        Ok((active_ratio * 100.0).round() as u32)
     }
 
     fn temperature(&self) -> Result<u32> {
