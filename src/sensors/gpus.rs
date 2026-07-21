@@ -846,15 +846,15 @@ impl Gpu {
     }
 
     pub fn is_temp_found(&self) -> bool {
-        self.temp.latest_sample() > 0.0
+        self.gpu_if.temperature().is_ok()
     }
 
     pub fn is_usage_found(&self) -> bool {
-        self.gpu.latest_sample() > 0.0
+        self.gpu_if.usage().is_ok()
     }
 
     pub fn is_vram_found(&self) -> bool {
-        self.vram.latest_sample() > 0.0
+        self.gpu_if.vram_used().is_ok()
     }
 
     pub fn update_config(&mut self, config: &dyn Any, refresh_rate: u32) {
