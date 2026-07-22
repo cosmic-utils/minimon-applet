@@ -718,19 +718,28 @@ impl cosmic::Application for Minimon {
                     for (key, gpu) in self.gpus.iter() {
                         let temp = gpu.temp.to_string();
 
-                        let info = widget::text::body(format!(
-                            "{} {} / {:.2} GB {}",
-                            gpu.gpu,
-                            gpu.vram.string(false),
-                            gpu.vram.total(),
-                            temp
-                        ));
+                        if gpu.is_vram_found() && gpu.is_temp_found() {
+                            let info = widget::text::body(format!(
+                                "{} {} / {:.2} GB {}",
+                                gpu.gpu,
+                                gpu.vram.string(false),
+                                gpu.vram.total(),
+                                temp
+                            ));
+                            sensor_settings = sensor_settings.add(Minimon::go_next_with_item(
+                                &SETTINGS_GPU_CHOICE,
+                                info,
+                                Message::Settings(Some(SettingsVariant::Gpu(key.clone()))),
+                            ));
+                        } else {
+                            let info = widget::text::body(format!("{}", gpu.gpu,));
 
-                        sensor_settings = sensor_settings.add(Minimon::go_next_with_item(
-                            &SETTINGS_GPU_CHOICE,
-                            info,
-                            Message::Settings(Some(SettingsVariant::Gpu(key.clone()))),
-                        ));
+                            sensor_settings = sensor_settings.add(Minimon::go_next_with_item(
+                                &SETTINGS_GPU_CHOICE,
+                                info,
+                                Message::Settings(Some(SettingsVariant::Gpu(key.clone()))),
+                            ));
+                        }
                     }
                 }
 
