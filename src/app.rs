@@ -1467,31 +1467,29 @@ impl Minimon {
         }
     }
 
-    pub fn go_next_with_item<'a, Msg: Clone + 'static>(
+    pub fn go_next_with_item<'a, Msg: 'static>(
         description: &'a str,
         item: impl Into<cosmic::Element<'a, Msg>>,
         msg_opt: impl Into<Option<Msg>>,
-    ) -> cosmic::Element<'a, Msg> {
+    ) -> list::ListButton<'a, Msg> {
         settings::item_row(vec![
-            text::body(description).wrapping(Wrapping::Word).into(),
-            space::horizontal().into(),
-            widget::row::with_capacity(2)
+            text::body(description)
+                .width(Length::Fill)
+                .wrapping(Wrapping::Word)
+                .into(),
+            row::with_capacity(2)
                 .push(item)
-                .push(widget::icon::from_name("go-next-symbolic").size(16).icon())
+                .push(
+                    cosmic::widget::icon::from_name("go-next-symbolic")
+                        .size(16)
+                        .icon(),
+                )
                 .align_y(Alignment::Center)
                 .spacing(cosmic::theme::spacing().space_s)
                 .into(),
         ])
-        .width(Length::Fill)
-        .apply(widget::container)
-        .class(cosmic::theme::Container::List)
-        .width(Length::Fill)
-        .apply(button::custom)
-        .padding(0)
-        .width(Length::Fill)
-        .class(cosmic::theme::Button::Transparent)
+        .apply(list::button)
         .on_press_maybe(msg_opt.into())
-        .into()
     }
 
     fn general_settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
