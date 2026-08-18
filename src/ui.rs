@@ -2,8 +2,9 @@
 //!
 //! The popup follows the COSMIC design language: every page is a stack of
 //! `settings::section()` lists, sub pages are reached through `go_next` rows and
-//! left again through a back link, and sensors with several readings separate
-//! those readings with a tab bar rather than stacking them on one long page.
+//! left again through a back link that stays above the scroll area, and sensors
+//! with several readings separate those readings with a tab bar rather than
+//! stacking them on one long page.
 
 use std::borrow::Cow;
 
@@ -30,7 +31,8 @@ const SWATCH_SIZE: (u16, u16) = (48, 24);
 /// Width given to the dropdowns inside settings rows.
 const DROPDOWN_WIDTH: u16 = 130;
 
-/// The link back to the parent page, shown at the top of every sub page.
+/// The link back to the parent page, drawn above the scroll area of every sub
+/// page so it stays in reach while the page scrolls.
 pub fn back_button<'a>(parent: &'a str, on_press: Message) -> Element<'a, Message> {
     widget::button::icon(widget::icon::from_name("go-previous-symbolic"))
         .extra_small()

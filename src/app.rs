@@ -12,9 +12,9 @@ use std::collections::{BTreeMap, VecDeque};
 use std::{fs, time};
 
 use cosmic::app::{Core, Task};
-use cosmic::iced::Limits;
 use cosmic::iced::window::Id;
 use cosmic::iced::{self, Subscription};
+use cosmic::iced::{Limits, Padding};
 use cosmic::widget::about::About;
 use cosmic::widget::segmented_button;
 use cosmic::widget::{Column, Row, container, settings, spin_button, text};
@@ -561,12 +561,12 @@ impl cosmic::Application for Minimon {
             let spacing = cosmic::theme::spacing();
 
             let padding = if self.core.is_condensed() {
-                spacing.space_xs
-            } else {
                 spacing.space_s
+            } else {
+                spacing.space_m
             };
 
-            let content = match &self.settings_page {
+            let page = match &self.settings_page {
                 None => self.overview_page(get_sysmon(&self.config.sysmon)),
                 Some(SettingsVariant::General) => self.general_settings_page(),
                 Some(SettingsVariant::Cpu) => self.cpu_settings_page(),
@@ -576,8 +576,25 @@ impl cosmic::Application for Minimon {
                 Some(SettingsVariant::Gpu(id)) => self.gpu_settings_page(id),
                 Some(SettingsVariant::About) => self.about_settings_page(),
             }
-            .padding(padding)
             .spacing(spacing.space_s);
+
+            // A sub page keeps its back link above the scroll area, so the way
+            // out stays in reach in a page longer than the popup.
+            let content: Element<'_, Message> = if self.settings_page.is_some() {
+                let back = ui::back_button(&SETTINGS_BACK, Message::Settings(None));
+
+                widget::column::with_capacity(2)
+                    .push(container(back).padding(Padding::from(padding).bottom(spacing.space_s)))
+                    .push(
+                        page.padding(Padding::from(padding).top(0))
+                            .apply(cosmic::widget::scrollable),
+                    )
+                    .into()
+            } else {
+                page.padding(padding)
+                    .apply(cosmic::widget::scrollable)
+                    .into()
+            };
 
             let limits = Limits::NONE
                 .max_width(380.0)
@@ -587,7 +604,7 @@ impl cosmic::Application for Minimon {
 
             self.core
                 .applet
-                .popup_container(content.apply(cosmic::widget::scrollable))
+                .popup_container(content)
                 .limits(limits)
                 .into()
         }
@@ -1391,8 +1408,9 @@ impl Minimon {
             .into()
     }
 
-    /// Frame shared by every sensor page: back link, header, tab bar and the
-    /// settings sections of the currently selected reading.
+    /// Frame shared by every sensor page: header, tab bar and the settings
+    /// sections of the currently selected reading. The back link is drawn by
+    /// [`Minimon::view_window`], above the scroll area.
     fn sensor_page<'a>(
         &'a self,
         title: impl Into<std::borrow::Cow<'a, str>> + 'a,
@@ -1402,7 +1420,6 @@ impl Minimon {
         sections: Vec<Element<'a, Message>>,
     ) -> SettingsColumn<'a> {
         let mut content = Column::new()
-            .push(ui::back_button(&SETTINGS_BACK, Message::Settings(None)))
             .push(ui::sensor_header(title, values, preview))
             .push_maybe(subtitle.map(text::caption));
 
@@ -1540,6 +1557,11 @@ impl Minimon {
             .as_ref()
             .and_then(|name| SYSMON_NAMES.iter().position(|&app| app == name));
 
+        // The config is a file the user can edit, and a spacing outside the
+        // range the panel knows falls back to a default, so the row shows a
+        // value the button can step through either way.
+        let panel_spacing = self.config.panel_spacing.clamp(1, 6);
+
         let general = settings::section()
             .add(settings::item(
                 fl!("refresh-rate"),
@@ -1569,15 +1591,14 @@ impl Minimon {
             )
             .add(settings::item(
                 fl!("settings-panel-spacing"),
-                widget::row::with_capacity(3)
-                    .push(text::body(fl!("settings-small")))
-                    .push(
-                        widget::slider(1..=6, self.config.panel_spacing, Message::PanelSpacing)
-                            .width(100),
-                    )
-                    .push(text::body(fl!("settings-large")))
-                    .align_y(Alignment::Center)
-                    .spacing(cosmic::theme::spacing().space_xxs),
+                spin_button(
+                    panel_spacing.to_string(),
+                    panel_spacing,
+                    1,
+                    1,
+                    6,
+                    Message::PanelSpacing,
+                ),
             ))
             .add(settings::item(
                 fl!("choose-sysmon"),
@@ -1638,7 +1659,6 @@ impl Minimon {
         }
 
         Column::new()
-            .push(ui::back_button(&SETTINGS_BACK, Message::Settings(None)))
             .push(text::title3(*SETTINGS_GENERAL_HEADING))
             .push(general)
             .push(order)
@@ -1815,7 +1835,7 @@ impl Minimon {
     fn gpu_settings_page(&self, id: &str) -> SettingsColumn<'_> {
         let (Some(gpu), Some(config)) = (self.gpus.get(id), self.config.gpus.get(id)) else {
             error!("SettingsVariant::Gpu: Not found {id}");
-            return Column::new().push(ui::back_button(&SETTINGS_BACK, Message::Settings(None)));
+            return Column::new();
         };
 
         let (value, preview, section) = match self.settings_tab() {
@@ -1846,11 +1866,9 @@ impl Minimon {
     }
 
     fn about_settings_page(&self) -> SettingsColumn<'_> {
-        Column::new()
-            .push(ui::back_button(&SETTINGS_BACK, Message::Settings(None)))
-            .push(widget::about(&self.about, |url| {
-                Message::LaunchWebbrowser(url.to_owned())
-            }))
+        Column::new().push(widget::about(&self.about, |url| {
+            Message::LaunchWebbrowser(url.to_owned())
+        }))
     }
 
     fn push_symbolic_icon(
