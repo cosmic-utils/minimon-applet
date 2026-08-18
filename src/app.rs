@@ -223,6 +223,9 @@ pub struct Minimon {
     /// The popup id.
     popup: Option<Id>,
 
+    /// Size of the panel window, used to centre the popup below the applet.
+    panel_size: Option<iced::Size>,
+
     /// Current settings sub page
     settings_page: Option<SettingsVariant>,
 
@@ -384,6 +387,7 @@ impl cosmic::Application for Minimon {
             gpus,
             nvidia_redetect_attempts: 0,
             popup: None,
+            panel_size: None,
             settings_page: None,
             colorpicker: ColorPicker::default(),
             config: MinimonConfig::default(),
@@ -464,6 +468,12 @@ impl cosmic::Application for Minimon {
 
     fn on_close_requested(&self, id: Id) -> Option<Message> {
         Some(Message::PopupClosed(id))
+    }
+
+    fn on_window_resize(&mut self, id: Id, width: f32, height: f32) {
+        if self.core.main_window_id() == Some(id) {
+            self.panel_size = Some(iced::Size::new(width, height));
+        }
     }
 
     fn view(&'_ self) -> Element<'_, Message> {
@@ -880,13 +890,25 @@ impl cosmic::Application for Minimon {
                             let new_id = Id::unique();
                             app.popup.replace(new_id);
 
-                            let popup_settings = app.core.applet.get_popup_settings(
+                            let mut popup_settings = app.core.applet.get_popup_settings(
                                 app.core.main_window_id().unwrap(),
                                 new_id,
                                 Some((1, 1)),
                                 None,
                                 None,
                             );
+                            // `get_popup_settings` anchors to a single applet slot, but
+                            // the panel window is as long as all the sensors drawn in it.
+                            // Anchor to the whole window so the popup is centred on the
+                            // applet.
+                            if let Some(size) = app.panel_size {
+                                let anchor = &mut popup_settings.positioner.anchor_rect;
+                                if app.core.applet.is_horizontal() {
+                                    anchor.width = anchor.width.max(size.width.round() as i32);
+                                } else {
+                                    anchor.height = anchor.height.max(size.height.round() as i32);
+                                }
+                            }
                             popup_settings
                         },
                         None,
