@@ -13,7 +13,6 @@ use std::collections::{BTreeMap, VecDeque};
 use std::{fs, time};
 
 use cosmic::app::{Core, Task};
-use cosmic::iced::platform_specific::shell::wayland::commands::popup::{destroy_popup, get_popup};
 use cosmic::iced::window::Id;
 use cosmic::iced::{self, Subscription};
 use cosmic::iced::{Length, Limits};
@@ -71,6 +70,8 @@ const DISK_ICON: &str = "io.github.cosmic_utils.minimon-applet-harddisk";
 
 const DEFAULT_MONITOR: &str = "COSMIC System Monitor";
 
+const LICENSE: &str = "GPL-3.0-only";
+
 pub static SETTINGS_CPU_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-cpu").leak());
 pub static SETTINGS_CPU_TEMP_CHOICE: LazyLock<&'static str> =
@@ -86,6 +87,8 @@ pub static SETTINGS_GPU_CHOICE: LazyLock<&'static str> =
 
 pub static SETTINGS_GENERAL_HEADING: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-subpage-general").leak());
+pub static SETTINGS_ABOUT_HEADING: LazyLock<&'static str> =
+    LazyLock::new(|| fl!("settings-about").leak());
 pub static SETTINGS_BACK: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-subpage-back").leak());
 pub static SETTINGS_CPU_HEADING: LazyLock<&'static str> = LazyLock::new(|| fl!("cpu-title").leak());
@@ -99,12 +102,27 @@ pub static SETTINGS_DISKS_HEADING: LazyLock<&'static str> =
     LazyLock::new(|| fl!("disks-title").leak());
 pub static SETTINGS_GPU_HEADING: LazyLock<&'static str> = LazyLock::new(|| fl!("gpu-title").leak());
 
+pub static SETTINGS_ABOUT: LazyLock<&'static str> = LazyLock::new(|| fl!("settings-about").leak());
+pub static SETTINGS_TIP: LazyLock<&'static str> = LazyLock::new(|| fl!("tip").leak());
+
+pub static ABOUT_LINKS_MAIN: LazyLock<&'static str> = LazyLock::new(|| fl!("links-main").leak());
+pub static ABOUT_LINKS_ISSUES: LazyLock<&'static str> =
+    LazyLock::new(|| fl!("links-issues").leak());
+
 // The UI requires static lifetime of dropdown items
 pub static SYSMON_LIST: LazyLock<BTreeMap<String, system_monitors::DesktopApp>> =
     LazyLock::new(system_monitors::get_desktop_applications);
 
 pub static SYSMON_NAMES: LazyLock<Vec<&'static str>> =
     LazyLock::new(|| SYSMON_LIST.values().map(|app| app.name.as_str()).collect());
+
+pub static SYSMON_LAUNCH_NAMES: LazyLock<Vec<String>> = LazyLock::new(|| {
+    let prefix = fl!("settings-launch");
+    SYSMON_LIST
+        .values()
+        .map(|app| format!("{prefix} {}", app.name))
+        .collect()
+});
 
 macro_rules! network_select {
     ($self:ident, $variant:expr) => {
@@ -134,6 +152,46 @@ macro_rules! settings_sub_page_heading {
     };
 }
 
+pub enum ActionIcon {
+    Launch,
+    Next,
+    Tip,
+    Hyperlink,
+}
+
+impl ActionIcon {
+    fn element<'a, Msg: 'static>(&self) -> cosmic::Element<'a, Msg> {
+        match self {
+            Self::Launch => widget::button::link::icon()
+                .symbolic(true)
+                .icon()
+                .size(16)
+                .into(),
+
+            Self::Next => cosmic::widget::icon::from_name("go-next-symbolic")
+                .size(16)
+                .icon()
+                .into(),
+
+            Self::Tip => {
+                cosmic::widget::icon::from_svg_bytes(&include_bytes!("../res/icons/heart.svg")[..])
+                    .symbolic(true)
+                    .icon()
+                    .size(16)
+                    .into()
+            }
+
+            Self::Hyperlink => cosmic::widget::icon::from_svg_bytes(
+                &include_bytes!("../res/icons/hyperlink.svg")[..],
+            )
+            .symbolic(true)
+            .icon()
+            .size(16)
+            .into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum SettingsVariant {
     General,
@@ -143,6 +201,7 @@ pub enum SettingsVariant {
     Network,
     Disks,
     Gpu(String),
+    About,
 }
 
 pub struct Minimon {
@@ -285,7 +344,7 @@ pub enum Message {
 
     ChangeContentOrder(ContentOrderChange),
 
-    Tip,
+    LaunchWebbrowser(String),
 }
 
 const APP_ID_DOCK: &str = "io.github.cosmic_utils.minimon-applet-dock";
@@ -633,18 +692,30 @@ impl cosmic::Application for Minimon {
                             content.push(settings_sub_page_heading!(SETTINGS_GENERAL_HEADING));
                         content = content.push(self.general_settings_ui());
                     }
+                    SettingsVariant::About => {
+                        content = content.push(settings_sub_page_heading!(SETTINGS_ABOUT_HEADING));
+                        content = content.push(self.about_settings_ui());
+                    }
                 }
 
             // List settings overview
             } else {
                 if let Some(sysmon) = get_sysmon(&self.config.sysmon) {
-                    content = content.push(Element::from(row!(
-                        widget::space::horizontal(),
-                        widget::button::standard(sysmon.name.to_owned())
-                            .on_press(Message::LaunchSystemMonitor(sysmon))
-                            .trailing_icon(widget::button::link::icon()),
-                        widget::space::horizontal()
-                    )));
+                    let target = format!("{} {}", fl!("settings-launch"), sysmon.name);
+                    if let Some(launch_name) = SYSMON_LAUNCH_NAMES
+                        .iter()
+                        .find(|s| s.as_str() == target)
+                        .map(String::as_str)
+                    {
+                        let launch_sysmon_button =
+                            list::ListColumn::new().add(Minimon::action_with_item(
+                                launch_name,
+                                text::body(""),
+                                ActionIcon::Launch,
+                                Message::LaunchSystemMonitor(sysmon),
+                            ));
+                        content = content.push(launch_sysmon_button);
+                    }
                 }
 
                 let cpu = widget::text::body(self.cpu.to_string());
@@ -678,39 +749,45 @@ impl cosmic::Application for Minimon {
                 ));
 
                 let mut sensor_settings = list::ListColumn::new()
-                    .add(Minimon::go_next_with_item(
+                    .add(Minimon::action_with_item(
                         &SETTINGS_GENERAL_HEADING,
                         text::body(""),
+                        ActionIcon::Next,
                         Message::Settings(Some(SettingsVariant::General)),
                     ))
-                    .add(Minimon::go_next_with_item(
+                    .add(Minimon::action_with_item(
                         &SETTINGS_CPU_CHOICE,
                         cpu,
+                        ActionIcon::Next,
                         Message::Settings(Some(SettingsVariant::Cpu)),
                     ));
 
                 if self.cputemp.is_found() {
-                    sensor_settings = sensor_settings.add(Minimon::go_next_with_item(
+                    sensor_settings = sensor_settings.add(Minimon::action_with_item(
                         &SETTINGS_CPU_TEMP_CHOICE,
                         cputemp,
+                        ActionIcon::Next,
                         Message::Settings(Some(SettingsVariant::CpuTemp)),
                     ));
                 }
 
                 sensor_settings = sensor_settings
-                    .add(Minimon::go_next_with_item(
+                    .add(Minimon::action_with_item(
                         &SETTINGS_MEMORY_CHOICE,
                         memory,
+                        ActionIcon::Next,
                         Message::Settings(Some(SettingsVariant::Memory)),
                     ))
-                    .add(Minimon::go_next_with_item(
+                    .add(Minimon::action_with_item(
                         &SETTINGS_NETWORK_CHOICE,
                         network,
+                        ActionIcon::Next,
                         Message::Settings(Some(SettingsVariant::Network)),
                     ))
-                    .add(Minimon::go_next_with_item(
+                    .add(Minimon::action_with_item(
                         &SETTINGS_DISKS_CHOICE,
                         disks,
+                        ActionIcon::Next,
                         Message::Settings(Some(SettingsVariant::Disks)),
                     ));
 
@@ -726,22 +803,39 @@ impl cosmic::Application for Minimon {
                             temp
                         ));
 
-                        sensor_settings = sensor_settings.add(Minimon::go_next_with_item(
+                        sensor_settings = sensor_settings.add(Minimon::action_with_item(
                             &SETTINGS_GPU_CHOICE,
                             info,
+                            ActionIcon::Next,
                             Message::Settings(Some(SettingsVariant::Gpu(key.clone()))),
                         ));
                     }
                 }
 
                 content = content.push(sensor_settings);
+
+                let mut extras_button = list::ListColumn::new().add(Minimon::action_with_item(
+                    &SETTINGS_ABOUT,
+                    text::body(""),
+                    ActionIcon::Next,
+                    Message::Settings(Some(SettingsVariant::About)),
+                ));
+
+                extras_button = extras_button.add(Minimon::action_with_item(
+                    &SETTINGS_TIP,
+                    text::body(""),
+                    ActionIcon::Tip,
+                    Message::LaunchWebbrowser("https://ko-fi.com/hyperchaotic".to_string()),
+                ));
+
+                content = content.push(extras_button);
             }
 
             content = content.padding(padding).spacing(padding);
 
             //let content = column!(sensor_settings);
             let limits = Limits::NONE
-                .max_width(420.0)
+                .max_width(380.0)
                 .min_width(360.0)
                 .min_height(200.0)
                 .max_height(600.0);
@@ -798,28 +892,6 @@ impl cosmic::Application for Minimon {
                         None,
                     ));
                 }
-                /*
-                if let Some(p) = self.popup.take() {
-                    self.colorpicker.deactivate();
-                    // but have to go back to sleep if settings closed
-                    self.maybe_stop_gpus();
-                    return cosmic::surface::surface_task(cosmic::surface::action::destroy_popup(
-                        p,
-                    ));
-                } else {
-                    self.calculate_max_label_widths();
-                    let new_id = Id::unique();
-                    self.popup.replace(new_id);
-
-                    if let Some(main_id) = self.core.main_window_id() {
-                        let mut popup_settings = self
-                            .core
-                            .applet
-                            .get_popup_settings(main_id, new_id, None, None, None);
-                        popup_settings.positioner.size_limits = Limits::NONE;
-                        return get_popup(popup_settings);
-                    }
-                };*/
             }
             Message::PopupClosed(id) => {
                 if self.popup.as_ref() == Some(&id) {
@@ -1385,8 +1457,8 @@ impl cosmic::Application for Minimon {
                     .swap(order_change.current_index, order_change.new_index);
                 self.save_config();
             }
-            Message::Tip => {
-                Self::open_tipping_page_in_browser();
+            Message::LaunchWebbrowser(url) => {
+                Self::launch_webbrowser(&url);
             }
         }
         Task::none()
@@ -1467,9 +1539,10 @@ impl Minimon {
         }
     }
 
-    pub fn go_next_with_item<'a, Msg: 'static>(
+    pub fn action_with_item<'a, Msg: 'static>(
         description: &'a str,
         item: impl Into<cosmic::Element<'a, Msg>>,
+        icon: ActionIcon,
         msg_opt: impl Into<Option<Msg>>,
     ) -> list::ListButton<'a, Msg> {
         settings::item_row(vec![
@@ -1479,11 +1552,7 @@ impl Minimon {
                 .into(),
             row::with_capacity(2)
                 .push(item)
-                .push(
-                    cosmic::widget::icon::from_name("go-next-symbolic")
-                        .size(16)
-                        .icon(),
-                )
+                .push(icon.element())
                 .align_y(Alignment::Center)
                 .spacing(cosmic::theme::spacing().space_s)
                 .into(),
@@ -1492,23 +1561,79 @@ impl Minimon {
         .on_press_maybe(msg_opt.into())
     }
 
+    fn about_settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
+        let icon_row = row!(
+            space::horizontal(),
+            cosmic::widget::icon::from_name(ICON)
+                .symbolic(false)
+                .icon()
+                .size(100),
+            space::horizontal()
+        );
+
+        let name_row = row!(
+            space::horizontal(),
+            text::heading(format!("Minimon for COSMIC")),
+            space::horizontal()
+        );
+
+        let developer_row = row!(
+            space::horizontal(),
+            text::caption_heading("Hyperchaotic"),
+            space::horizontal()
+        );
+
+        let version_row = row!(
+            space::horizontal(),
+            text::body(format!("Version {}", env!("CARGO_PKG_VERSION"))),
+            space::horizontal()
+        );
+
+        let links_row = list::ListColumn::new()
+            .add(Minimon::action_with_item(
+                &ABOUT_LINKS_MAIN,
+                text::body(""),
+                ActionIcon::Hyperlink,
+                Message::LaunchWebbrowser(
+                    "https://github.com/cosmic-utils/minimon-applet/".to_string(),
+                ),
+            ))
+            .add(Minimon::action_with_item(
+                &ABOUT_LINKS_ISSUES,
+                text::body(""),
+                ActionIcon::Hyperlink,
+                Message::LaunchWebbrowser(
+                    "https://github.com/cosmic-utils/minimon-applet/issues/".to_string(),
+                ),
+            ));
+
+        let license_row = list::ListColumn::new().add(Minimon::action_with_item(
+            &LICENSE,
+            text::body(""),
+            ActionIcon::Hyperlink,
+            Message::LaunchWebbrowser(
+                "https://github.com/cosmic-utils/minimon-applet/edit/main/LICENSE".to_string(),
+            ),
+        ));
+
+        // Combine rows into a column with spacing
+        column!(
+            icon_row,
+            name_row,
+            developer_row,
+            version_row,
+            widget::text::heading(fl!("about-links")),
+            links_row,
+            widget::text::heading(fl!("about-license")),
+            license_row
+        )
+        .spacing(10)
+        .into()
+    }
+
     fn general_settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
         let refresh_rate = f64::from(self.config.refresh_rate) / 1000.0;
 
-        let heart = widget::button::custom(Element::from(row!(
-            widget::text(fl!("tip")),
-            widget::svg(widget::svg::Handle::from_memory(HEART.as_bytes()))
-                .width(15)
-                .height(15)
-        )));
-        let version_row = row!(
-            text::heading(format!(
-                "Minimon version {} for COSMIC.",
-                env!("CARGO_PKG_VERSION")
-            )),
-            space::horizontal(),
-            heart.on_press(Message::Tip)
-        );
         // Create settings rows
         let refresh_row = settings::item(
             fl!("refresh-rate"),
@@ -1623,7 +1748,6 @@ impl Minimon {
 
         // Combine rows into a column with spacing
         column!(
-            version_row,
             refresh_row,
             value_size_row,
             mono_row,
@@ -2417,8 +2541,7 @@ impl Minimon {
         }
     }
 
-    fn open_tipping_page_in_browser() {
-        let url = "https://ko-fi.com/hyperchaotic";
+    fn launch_webbrowser(url: &str) {
         let in_flatpak = std::env::var("FLATPAK_ID").is_ok();
 
         let result = if in_flatpak {
@@ -2436,8 +2559,3 @@ impl Minimon {
         }
     }
 }
-
-const HEART: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="red" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="icon icon-tabler icons-tabler-outline icon-tabler-heart">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="m20.288 12.653-8.28 8.269-8.278-8.27a5.52 5.566 0 1 1 8.279-7.308 5.52 5.566 0 1 1 8.279 7.315" style="stroke-width:2.21706"/>
-</svg>"#;
