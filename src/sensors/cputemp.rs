@@ -5,21 +5,15 @@ use crate::{
     sensors::INVALID_IMG,
     svg_graph::SvgColors,
 };
-use cosmic::{Element, iced::Alignment::Center, widget::Container};
+use cosmic::Element;
 
 use cosmic::widget;
-use cosmic::widget::{settings, toggler};
+use cosmic::widget::settings;
 
-use cosmic::{
-    iced::{
-        Alignment,
-        widget::{column, row},
-    },
-    widget::Row,
-};
 use log::info;
 
 use crate::app::Message;
+use crate::ui;
 use std::any::Any;
 
 use bounded_vec_deque::BoundedVecDeque;
@@ -327,111 +321,59 @@ impl Sensor for CpuTemp {
     }
 
     fn settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
-        let theme = cosmic::theme::active();
-        let cosmic = theme.cosmic();
-
-        let mut temp_elements = Vec::new();
-
-        let temp = self.to_string();
-
-        temp_elements.push(Element::from(
-            column!(
-                Container::new(self.chart(60, 60).width(60).height(60))
-                    .width(90)
-                    .align_x(Alignment::Center),
-                cosmic::widget::text::body(temp.to_string())
-                    .width(90)
-                    .align_x(Alignment::Center)
-            )
-            .padding(5)
-            .align_x(Alignment::Center),
-        ));
-
-        let selected_graph: Option<usize> = Some(self.graph_kind().into());
-        let selected_unit: Option<usize> = Some(self.config.unit.into());
-
         let config = &self.config;
-        let temp_kind = self.graph_kind();
-        let min_temp_val = config.min_temp;
+        let kind = self.graph_kind();
 
-        let min_temp_input = {
-            let val_string = min_temp_val.to_string();
-            widget::text_input("", val_string)
-                .width(100)
-                .on_input(move |temp_str| {
-                    let temp = if temp_str.is_empty() {
-                        0.0
-                    } else {
-                        temp_str.parse::<f64>().unwrap_or(min_temp_val)
-                    };
-                    Message::CpuTempMinTempChanged(temp)
-                })
-        };
-
-        temp_elements.push(Element::from(
-            column!(
-                settings::item(
-                    fl!("enable-chart"),
-                    toggler(config.chart_visible())
-                        .on_toggle(|value| { Message::ToggleCpuTempChart(value) }),
-                ),
-                settings::item(
-                    fl!("enable-value"),
-                    toggler(config.value_visible())
-                        .on_toggle(|value| { Message::ToggleCpuTempValue(value) }),
-                ),
-                settings::item(
-                    fl!("enable-label"),
-                    toggler(config.label_visible())
-                        .on_toggle(|value| { Message::ToggleCpuTempLabel(value) }),
-                ),
-                settings::item(
-                    fl!("enable-icon"),
-                    toggler(config.icon_visible())
-                        .on_toggle(|value| { Message::ToggleCpuTempIcon(value) }),
-                ),
-                settings::item(
-                    fl!("temperature-unit"),
-                    widget::dropdown(&self.unit_options, selected_unit, |m| {
-                        Message::SelectCpuTempUnit(m.into())
-                    },)
-                ),
-                row!(
-                    widget::text::body(fl!("chart-type")),
-                    widget::dropdown(&self.graph_options, selected_graph, |m| {
-                        Message::SelectGraphType(DeviceKind::CpuTemp, m.into())
-                    },)
-                    .width(70),
-                    widget::space::horizontal(),
-                    widget::button::standard(fl!("change-colors")).on_press(
-                        Message::ColorPickerOpen(DeviceKind::CpuTemp, temp_kind, None)
-                    ),
-                )
-                .align_y(Center),
-            )
-            .push(settings::item(fl!("min-temperature"), min_temp_input))
-            .spacing(cosmic.space_xs()),
-        ));
-
-        let mut expl = String::with_capacity(128);
+        let mut explanation = String::with_capacity(128);
         if let Some(hw) = &self.hwmon_temp {
             if hw.cpu == super::CpuVariant::Amd {
-                expl.push_str(&fl!("cpu-temp-amd"));
+                explanation.push_str(&fl!("cpu-temp-amd"));
             } else {
-                expl.push_str(&fl!("cpu-temp-intel"));
+                explanation.push_str(&fl!("cpu-temp-intel"));
             }
         }
 
-        column!(
-            Element::from(widget::text::body(expl)),
-            Element::from(
-                Row::with_children(temp_elements)
-                    .align_y(Alignment::Center)
-                    .spacing(0)
+        let section = settings::section()
+            .add(
+                settings::item::builder(fl!("enable-chart"))
+                    .toggler(config.chart_visible(), Message::ToggleCpuTempChart),
             )
-        )
-        .spacing(10)
-        .into()
+            .add(
+                settings::item::builder(fl!("enable-value"))
+                    .toggler(config.value_visible(), Message::ToggleCpuTempValue),
+            )
+            .add(
+                settings::item::builder(fl!("enable-label"))
+                    .toggler(config.label_visible(), Message::ToggleCpuTempLabel),
+            )
+            .add(
+                settings::item::builder(fl!("enable-icon"))
+                    .toggler(config.icon_visible(), Message::ToggleCpuTempIcon),
+            )
+            .add(ui::temperature_unit_row(
+                &self.unit_options,
+                Some(config.unit.into()),
+                |index| Message::SelectCpuTempUnit(index.into()),
+            ))
+            .add(ui::min_temperature_row(
+                config.min_temp,
+                Message::CpuTempMinTempChanged,
+            ))
+            .add(ui::chart_type_row(
+                &self.graph_options,
+                Some(kind.into()),
+                |index| Message::SelectGraphType(DeviceKind::CpuTemp, index.into()),
+            ))
+            .add(ui::chart_color_row(
+                ui::chart_swatch(config.colors(), kind),
+                Message::ColorPickerOpen(DeviceKind::CpuTemp, kind, None),
+            ));
+
+        cosmic::widget::column::with_capacity(2)
+            .push(section)
+            .push(widget::text::caption(explanation))
+            .spacing(cosmic::theme::spacing().space_s)
+            .into()
     }
 }
 

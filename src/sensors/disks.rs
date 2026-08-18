@@ -9,24 +9,13 @@ use crate::{
     svg_graph::SvgColors,
 };
 
-use cosmic::{
-    Element,
-    widget::{Column, Container},
-};
+use cosmic::Element;
 
-use cosmic::widget;
 use cosmic::widget::settings;
-
-use cosmic::{
-    iced::{
-        Alignment,
-        widget::{column, row},
-    },
-    widget::Row,
-};
 
 use crate::app::Message;
 use crate::config::DisksVariant;
+use crate::ui;
 use std::any::Any;
 
 use super::Sensor;
@@ -240,106 +229,34 @@ impl Sensor for Disks {
     }
 
     fn settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
-        let theme = cosmic::theme::active();
-        let cosmic = theme.cosmic();
-        let mut disk_elements = Vec::new();
-
-        let sample_rate_ms = self.refresh_rate;
-
-        let wrrate = format!("W {}", &self.write_label(sample_rate_ms, UnitVariant::Long));
-
-        let rdrate = format!("R {}", &self.read_label(sample_rate_ms, UnitVariant::Long));
-
         let config = &self.config;
-        let k = self.config.variant;
+        let variant = config.variant;
 
-        let mut rate = column!(
-            Container::new(self.chart(60, 60).width(60).height(60))
-                .width(90)
-                .align_x(Alignment::Center)
-        );
-
-        rate = rate.push(Element::from(cosmic::widget::text::body("")));
-
-        match self.config.variant {
-            DisksVariant::Combined => {
-                rate = rate.push(
-                    cosmic::widget::text::body(wrrate)
-                        .width(90)
-                        .align_x(Alignment::Center),
-                );
-                rate = rate.push(
-                    cosmic::widget::text::body(rdrate)
-                        .width(90)
-                        .align_x(Alignment::Center),
-                );
-            }
-            DisksVariant::Write => {
-                rate = rate.push(
-                    cosmic::widget::text::body(wrrate)
-                        .width(90)
-                        .align_x(Alignment::Center),
-                );
-            }
-            DisksVariant::Read => {
-                rate = rate.push(
-                    cosmic::widget::text::body(rdrate)
-                        .width(90)
-                        .align_x(Alignment::Center),
-                );
-            }
-        }
-        disk_elements.push(Element::from(rate));
-
-        let mut disk_bandwidth_items = Vec::new();
-
-        disk_bandwidth_items.push(
-            settings::item(
-                fl!("enable-chart"),
-                widget::toggler(config.chart_visible())
-                    .on_toggle(move |t| Message::ToggleDisksChart(k, t)),
-            )
-            .into(),
-        );
-        disk_bandwidth_items.push(
-            settings::item(
-                fl!("enable-value"),
-                widget::toggler(config.value_visible())
-                    .on_toggle(move |t| Message::ToggleDisksValue(k, t)),
-            )
-            .into(),
-        );
-
-        disk_bandwidth_items.push(
-            row!(
-                widget::space::horizontal(),
-                widget::button::standard(fl!("change-colors")).on_press(Message::ColorPickerOpen(
-                    DeviceKind::Disks(self.config.variant),
-                    ChartKind::Line,
-                    None
-                )),
-                widget::space::horizontal()
-            )
-            .into(),
-        );
-
-        let disk_right_column = Column::with_children(disk_bandwidth_items);
-
-        disk_elements.push(Element::from(disk_right_column.spacing(cosmic.space_xs())));
-
-        let title_content = match self.config.variant {
-            DisksVariant::Combined => fl!("disks-title-combined"),
-            DisksVariant::Write => fl!("disks-title-write"),
-            DisksVariant::Read => fl!("disks-title-read"),
+        // The read chart is drawn with the second graph color.
+        let swatch = if variant == DisksVariant::Read {
+            config.colors().graph2
+        } else {
+            config.colors().graph1
         };
-        let title = widget::text::heading(title_content);
 
-        column![
-            title,
-            Row::with_children(disk_elements).align_y(Alignment::Center)
-        ]
-        .spacing(cosmic::theme::spacing().space_xs)
-        .into()
+        settings::section()
+            .add(
+                settings::item::builder(fl!("enable-chart"))
+                    .toggler(config.chart_visible(), move |t| {
+                        Message::ToggleDisksChart(variant, t)
+                    }),
+            )
+            .add(
+                settings::item::builder(fl!("enable-value"))
+                    .toggler(config.value_visible(), move |t| {
+                        Message::ToggleDisksValue(variant, t)
+                    }),
+            )
+            .add(ui::chart_color_row(
+                swatch,
+                Message::ColorPickerOpen(DeviceKind::Disks(variant), ChartKind::Line, None),
+            ))
+            .into()
     }
 }
 

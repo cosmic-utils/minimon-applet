@@ -7,21 +7,14 @@ use crate::{
     svg_graph::SvgColors,
 };
 use bounded_vec_deque::BoundedVecDeque;
-use cosmic::{
-    Element, Renderer, Theme, iced::Alignment::Center, widget::Column, widget::Container,
-    widget::Row,
-};
+use cosmic::{Element, Renderer, Theme};
 use std::{any::Any, sync::LazyLock};
 
 use cosmic::widget;
-use cosmic::widget::{settings, toggler};
-
-use cosmic::iced::{
-    Alignment,
-    widget::{column, row},
-};
+use cosmic::widget::settings;
 
 use crate::app::Message;
+use crate::ui;
 
 use std::{
     collections::HashMap,
@@ -292,143 +285,78 @@ impl Sensor for Cpu {
     }
 
     fn settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
-        let theme = cosmic::theme::active();
-        let cosmic = theme.cosmic();
+        let config = &self.config;
+        let kind = self.graph_kind();
 
-        let mut cpu_elements = Vec::new();
-        let mut cpu_column = Vec::new();
-
-        if self.graph_kind() != ChartKind::StackedBars {
-            let cpu = self.to_string();
-            cpu_elements.push(Element::from(
-                column!(
-                    Container::new(self.chart(60, 60).width(60).height(60))
-                        .width(90)
-                        .align_x(Alignment::Center),
-                    cosmic::widget::text::body(cpu.to_string())
-                        .width(90)
-                        .align_x(Alignment::Center)
-                )
-                .padding(5)
-                .align_x(Alignment::Center),
-            ));
-        } else {
-            let width = StackedBarSvg::new(self.config.bar_width, 60, self.config.bar_spacing)
-                .width(self.core_count());
-            cpu_column.push(Element::from(row!(
-                widget::space::horizontal(),
-                self.chart(60, width).height(60).width(width),
-                widget::space::horizontal()
-            )));
-        };
-
-        // A bit ugly and error prone, the Heat type is not supported here so bars takes its place
-        // in numbering for the dropdown
-        let selected: Option<usize> = if self.graph_kind() == ChartKind::StackedBars {
+        // The Heat kind is not supported here, so Bars takes its place in the
+        // dropdown numbering.
+        let selected: Option<usize> = if kind == ChartKind::StackedBars {
             Some(2)
         } else {
-            Some(self.graph_kind().into())
+            Some(kind.into())
         };
 
-        let config = &self.config;
-        let cpu_kind = self.graph_kind();
-
-        cpu_column.push(
-            settings::item(
-                fl!("enable-chart"),
-                toggler(config.chart_visible()).on_toggle(Message::ToggleCpuChart),
-            )
-            .into(),
+        let mut section = settings::section().add(
+            settings::item::builder(fl!("enable-chart"))
+                .toggler(config.chart_visible(), Message::ToggleCpuChart),
         );
 
-        if self.graph_kind() == ChartKind::StackedBars {
-            cpu_column.push(
-                settings::item(
+        if kind == ChartKind::StackedBars {
+            section = section
+                .add(settings::item(
                     fl!("graph-bar-width"),
                     widget::spin_button(
-                        self.config.bar_width.to_string(),
-                        self.config.bar_width,
+                        config.bar_width.to_string(),
+                        config.bar_width,
                         1,
                         1,
                         16,
                         Message::CpuBarSizeChanged,
                     ),
-                )
-                .into(),
+                ))
+                .add(
+                    settings::item::builder(fl!("graph-bar-spacing"))
+                        .toggler(config.bar_spacing == 0, Message::CpuNarrowBarSpacing),
+                );
+        }
+
+        section = section
+            .add(
+                settings::item::builder(fl!("enable-value"))
+                    .toggler(config.value_visible(), Message::ToggleCpuValue),
+            )
+            .add(
+                settings::item::builder(fl!("enable-label"))
+                    .toggler(config.label_visible(), Message::ToggleCpuLabel),
+            )
+            .add(
+                settings::item::builder(fl!("enable-icon"))
+                    .toggler(config.icon_visible(), Message::ToggleCpuIcon),
             );
 
-            let narrow = config.bar_spacing == 0;
-            cpu_column.push(
-                settings::item(
-                    fl!("graph-bar-spacing"),
-                    toggler(narrow).on_toggle(Message::CpuNarrowBarSpacing),
-                )
-                .into(),
+        if config.value_visible() {
+            section = section.add(
+                settings::item::builder(fl!("cpu-no-decimals"))
+                    .toggler(config.no_decimals, Message::ToggleCpuNoDecimals),
             );
         }
 
-        cpu_column.push(
-            settings::item(
-                fl!("enable-value"),
-                toggler(config.value_visible()).on_toggle(Message::ToggleCpuValue),
-            )
-            .into(),
-        );
-        cpu_column.push(
-            settings::item(
-                fl!("enable-label"),
-                toggler(config.label_visible()).on_toggle(Message::ToggleCpuLabel),
-            )
-            .into(),
-        );
-        cpu_column.push(
-            settings::item(
-                fl!("enable-icon"),
-                toggler(config.icon_visible()).on_toggle(Message::ToggleCpuIcon),
-            )
-            .into(),
-        );
-        if self.config.value_visible() {
-            cpu_column.push(
-                settings::item(
-                    fl!("cpu-no-decimals"),
-                    row!(
-                        widget::checkbox(config.no_decimals)
-                            .on_toggle(Message::ToggleCpuNoDecimals)
-                    ),
-                )
-                .into(),
-            );
-        }
-        cpu_column.push(
-            row!(
-                widget::text::body(fl!("chart-type")),
-                widget::dropdown(&self.graph_options, selected, move |m| {
-                    let mut choice: ChartKind = m.into();
+        section
+            .add(ui::chart_type_row(
+                &self.graph_options,
+                selected,
+                move |index| {
+                    let mut choice: ChartKind = index.into();
                     if choice != ChartKind::Ring && choice != ChartKind::Line {
-                        choice = ChartKind::StackedBars
-                    };
+                        choice = ChartKind::StackedBars;
+                    }
                     Message::SelectGraphType(DeviceKind::Cpu, choice)
-                })
-                .width(70),
-                widget::space::horizontal(),
-                widget::button::standard(fl!("change-colors")).on_press(Message::ColorPickerOpen(
-                    DeviceKind::Cpu,
-                    cpu_kind,
-                    None
-                )),
-            )
-            .align_y(Center)
-            .into(),
-        );
-
-        cpu_elements.push(Element::from(
-            Column::with_children(cpu_column).spacing(cosmic.space_xs()),
-        ));
-
-        Row::with_children(cpu_elements)
-            .align_y(Alignment::Center)
-            .spacing(0)
+                },
+            ))
+            .add(ui::chart_color_row(
+                config.colors().graph1,
+                Message::ColorPickerOpen(DeviceKind::Cpu, kind, None),
+            ))
             .into()
     }
 }

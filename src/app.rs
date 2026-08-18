@@ -6,17 +6,18 @@ use cosmic::cosmic_theme::palette::bool_mask::BoolMask;
 use cosmic::cosmic_theme::palette::{FromColor, WithAlpha};
 use cosmic::iced::advanced::graphics::text::cosmic_text::{Buffer, FontSystem, Metrics, Shaping};
 use cosmic::iced::alignment::Horizontal::{self};
-use cosmic::iced::core::text::Wrapping;
 use cosmic::iced::program::graphics::text::cosmic_text::Attrs;
 
 use std::collections::{BTreeMap, VecDeque};
 use std::{fs, time};
 
 use cosmic::app::{Core, Task};
+use cosmic::iced::Limits;
 use cosmic::iced::window::Id;
 use cosmic::iced::{self, Subscription};
-use cosmic::iced::{Length, Limits};
-use cosmic::widget::{Column, Row, button, container, list, settings, space, spin_button, text};
+use cosmic::widget::about::About;
+use cosmic::widget::segmented_button;
+use cosmic::widget::{Column, Row, container, settings, spin_button, text};
 use cosmic::{Apply, Element};
 use cosmic::{widget, widget::autosize};
 
@@ -24,13 +25,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::atomic::{self, AtomicU32};
 
-use cosmic::{
-    applet::cosmic_panel_config::PanelAnchor,
-    iced::{
-        Alignment,
-        widget::{column, row},
-    },
-};
+use cosmic::{applet::cosmic_panel_config::PanelAnchor, iced::Alignment};
 
 use zbus::blocking::Connection;
 use zvariant::OwnedObjectPath;
@@ -52,6 +47,7 @@ use crate::sensors::memory::Memory;
 use crate::sensors::network::{self, Network};
 use crate::sensors::{Sensor, TempUnit};
 use crate::system_monitors;
+use crate::ui;
 use crate::{config::MinimonConfig, fl};
 
 use cosmic::widget::Id as WId;
@@ -72,10 +68,12 @@ const DEFAULT_MONITOR: &str = "COSMIC System Monitor";
 
 const LICENSE: &str = "GPL-3.0-only";
 
+const REPOSITORY_URL: &str = "https://github.com/cosmic-utils/minimon-applet";
+const TIP_URL: &str = "https://ko-fi.com/hyperchaotic";
+const LICENSE_URL: &str = "https://www.gnu.org/licenses/gpl-3.0.html";
+
 pub static SETTINGS_CPU_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-cpu").leak());
-pub static SETTINGS_CPU_TEMP_CHOICE: LazyLock<&'static str> =
-    LazyLock::new(|| fl!("settings-cpu-temperature").leak());
 pub static SETTINGS_MEMORY_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-memory").leak());
 pub static SETTINGS_NETWORK_CHOICE: LazyLock<&'static str> =
@@ -84,25 +82,14 @@ pub static SETTINGS_DISKS_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-disks").leak());
 pub static SETTINGS_GPU_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-gpu").leak());
+pub static SETTINGS_ABOUT_CHOICE: LazyLock<&'static str> =
+    LazyLock::new(|| fl!("settings-about").leak());
 
 pub static SETTINGS_GENERAL_HEADING: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-subpage-general").leak());
-pub static SETTINGS_ABOUT_HEADING: LazyLock<&'static str> =
-    LazyLock::new(|| fl!("settings-about").leak());
 pub static SETTINGS_BACK: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-subpage-back").leak());
-pub static SETTINGS_CPU_HEADING: LazyLock<&'static str> = LazyLock::new(|| fl!("cpu-title").leak());
-pub static SETTINGS_CPU_TEMP_HEADING: LazyLock<&'static str> =
-    LazyLock::new(|| fl!("cpu-temperature-title").leak());
-pub static SETTINGS_MEMORY_HEADING: LazyLock<&'static str> =
-    LazyLock::new(|| fl!("memory-title").leak());
-pub static SETTINGS_NETWORK_HEADING: LazyLock<&'static str> =
-    LazyLock::new(|| fl!("net-title").leak());
-pub static SETTINGS_DISKS_HEADING: LazyLock<&'static str> =
-    LazyLock::new(|| fl!("disks-title").leak());
-pub static SETTINGS_GPU_HEADING: LazyLock<&'static str> = LazyLock::new(|| fl!("gpu-title").leak());
 
-pub static SETTINGS_ABOUT: LazyLock<&'static str> = LazyLock::new(|| fl!("settings-about").leak());
 pub static SETTINGS_TIP: LazyLock<&'static str> = LazyLock::new(|| fl!("tip").leak());
 
 pub static ABOUT_LINKS_MAIN: LazyLock<&'static str> = LazyLock::new(|| fl!("links-main").leak());
@@ -115,14 +102,6 @@ pub static SYSMON_LIST: LazyLock<BTreeMap<String, system_monitors::DesktopApp>> 
 
 pub static SYSMON_NAMES: LazyLock<Vec<&'static str>> =
     LazyLock::new(|| SYSMON_LIST.values().map(|app| app.name.as_str()).collect());
-
-pub static SYSMON_LAUNCH_NAMES: LazyLock<Vec<String>> = LazyLock::new(|| {
-    let prefix = fl!("settings-launch");
-    SYSMON_LIST
-        .values()
-        .map(|app| format!("{prefix} {}", app.name))
-        .collect()
-});
 
 macro_rules! network_select {
     ($self:ident, $variant:expr) => {
@@ -146,62 +125,30 @@ macro_rules! disks_select {
     };
 }
 
-macro_rules! settings_sub_page_heading {
-    ($heading:ident) => {
-        Minimon::sub_page_header(Some(&$heading), &SETTINGS_BACK, Message::Settings(None))
-    };
-}
-
-pub enum ActionIcon {
-    Launch,
-    Next,
-    Tip,
-    Hyperlink,
-}
-
-impl ActionIcon {
-    fn element<'a, Msg: 'static>(&self) -> cosmic::Element<'a, Msg> {
-        match self {
-            Self::Launch => widget::button::link::icon()
-                .symbolic(true)
-                .icon()
-                .size(16)
-                .into(),
-
-            Self::Next => cosmic::widget::icon::from_name("go-next-symbolic")
-                .size(16)
-                .icon()
-                .into(),
-
-            Self::Tip => {
-                cosmic::widget::icon::from_svg_bytes(&include_bytes!("../res/icons/heart.svg")[..])
-                    .symbolic(true)
-                    .icon()
-                    .size(16)
-                    .into()
-            }
-
-            Self::Hyperlink => cosmic::widget::icon::from_svg_bytes(
-                &include_bytes!("../res/icons/hyperlink.svg")[..],
-            )
-            .symbolic(true)
-            .icon()
-            .size(16)
-            .into(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SettingsVariant {
     General,
     Cpu,
-    CpuTemp,
     Memory,
     Network,
     Disks,
     Gpu(String),
     About,
+}
+
+/// One reading of a sensor that has more than one, selected through the tab bar
+/// at the top of the sensor's settings page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingsTab {
+    CpuLoad,
+    CpuTemp,
+    NetworkDownload,
+    NetworkUpload,
+    DisksWrite,
+    DisksRead,
+    GpuLoad,
+    GpuTemp,
+    GpuVram,
 }
 
 pub struct Minimon {
@@ -228,6 +175,12 @@ pub struct Minimon {
 
     /// Current settings sub page
     settings_page: Option<SettingsVariant>,
+
+    /// Readings of the current settings sub page, empty if it only has one
+    settings_tabs: segmented_button::Model<segmented_button::SingleSelect>,
+
+    /// Static information shown on the about page
+    about: About,
 
     /// The color picker dialog
     colorpicker: ColorPicker,
@@ -333,6 +286,8 @@ pub enum Message {
     CpuTempMinTempChanged(f64),
 
     Settings(Option<SettingsVariant>),
+    SettingsTabSelected(segmented_button::Entity),
+    LaunchWebbrowser(String),
 
     GpuToggleChart(String, DeviceKind, bool),
     GpuToggleValue(String, DeviceKind, bool),
@@ -346,9 +301,10 @@ pub enum Message {
     SysmonSelect(usize),
 
     ChangeContentOrder(ContentOrderChange),
-
-    LaunchWebbrowser(String),
 }
+
+/// The settings popup is built from columns of `settings::section()` lists.
+type SettingsColumn<'a> = Column<'a, Message, cosmic::Theme, cosmic::Renderer>;
 
 const APP_ID_DOCK: &str = "io.github.cosmic_utils.minimon-applet-dock";
 const APP_ID_PANEL: &str = "io.github.cosmic_utils.minimon-applet-panel";
@@ -389,6 +345,8 @@ impl cosmic::Application for Minimon {
             popup: None,
             panel_size: None,
             settings_page: None,
+            settings_tabs: segmented_button::Model::default(),
+            about: Minimon::about(),
             colorpicker: ColorPicker::default(),
             config: MinimonConfig::default(),
             refresh_rate: Arc::new(AtomicU32::new(1000)),
@@ -598,252 +556,29 @@ impl cosmic::Application for Minimon {
                 .limits(limits)
                 .into()
 
-        // Individual settingspage
+        // Overview or one of the settings sub pages
         } else {
-            let theme = cosmic::theme::active();
+            let spacing = cosmic::theme::spacing();
 
             let padding = if self.core.is_condensed() {
-                theme.cosmic().space_s()
+                spacing.space_xs
             } else {
-                theme.cosmic().space_l()
+                spacing.space_s
             };
 
-            let mut content = Column::new();
-
-            if let Some(variant) = &self.settings_page {
-                match variant {
-                    SettingsVariant::Cpu => {
-                        content = content.push(settings_sub_page_heading!(SETTINGS_CPU_HEADING));
-                        content = content.push(self.cpu.settings_ui());
-                    }
-                    SettingsVariant::CpuTemp => {
-                        content =
-                            content.push(settings_sub_page_heading!(SETTINGS_CPU_TEMP_HEADING));
-                        content = content.push(self.cputemp.settings_ui());
-                    }
-                    SettingsVariant::Memory => {
-                        content = content.push(Minimon::sub_page_header(
-                            Some(&SETTINGS_MEMORY_HEADING),
-                            &SETTINGS_BACK,
-                            Message::Settings(None),
-                        ));
-                        content = content.push(self.memory.settings_ui());
-                    }
-                    SettingsVariant::Network => {
-                        let net_variant = self.config.network1.variant;
-                        content =
-                            content.push(settings_sub_page_heading!(SETTINGS_NETWORK_HEADING));
-                        content = content.push(settings::item(
-                            fl!("enable-net-combined"),
-                            widget::toggler(net_variant == NetworkVariant::Combined)
-                                .on_toggle(Message::ToggleNetCombined),
-                        ));
-                        content = content.push(settings::item(
-                            fl!("net-use-bytes"),
-                            widget::toggler(self.config.network1.show_bytes)
-                                .on_toggle(Message::ToggleNetBytes),
-                        ));
-                        content = content.push(settings::item(
-                            fl!("enable-label"),
-                            widget::toggler(self.config.network1.label_visible())
-                                .on_toggle(move |t| Message::ToggleNetLabel(net_variant, t)),
-                        ));
-                        content = content.push(settings::item(
-                            fl!("enable-icon"),
-                            widget::toggler(self.config.network1.icon_visible())
-                                .on_toggle(move |t| Message::ToggleNetIcon(net_variant, t)),
-                        ));
-                        content = content.push(self.network1.settings_ui());
-                        if net_variant == NetworkVariant::Download {
-                            content = content.push(self.network2.settings_ui());
-                        }
-                    }
-                    SettingsVariant::Disks => {
-                        let disks_variant = self.config.disks1.variant;
-                        content = content.push(settings_sub_page_heading!(SETTINGS_DISKS_HEADING));
-                        content = content.push(settings::item(
-                            fl!("enable-disks-combined"),
-                            widget::toggler(disks_variant == DisksVariant::Combined)
-                                .on_toggle(Message::ToggleDisksCombined),
-                        ));
-                        content = content.push(settings::item(
-                            fl!("enable-label"),
-                            widget::toggler(self.config.disks1.label_visible())
-                                .on_toggle(move |t| Message::ToggleDisksLabel(disks_variant, t)),
-                        ));
-                        content = content.push(settings::item(
-                            fl!("enable-icon"),
-                            widget::toggler(self.config.disks1.icon_visible())
-                                .on_toggle(move |t| Message::ToggleDisksIcon(disks_variant, t)),
-                        ));
-                        content = content.push(self.disks1.settings_ui());
-                        if disks_variant == DisksVariant::Write {
-                            content = content.push(self.disks2.settings_ui());
-                        }
-                    }
-                    SettingsVariant::Gpu(id) => {
-                        content = content.push(settings_sub_page_heading!(SETTINGS_GPU_HEADING));
-
-                        if let (Some(gpu), Some(config)) =
-                            (self.gpus.get(id), self.config.gpus.get(id))
-                        {
-                            content = content.push(
-                                widget::row::with_capacity(2)
-                                    .push(text::heading(gpu.name()))
-                                    .spacing(cosmic::theme::spacing().space_m),
-                            );
-                            content = content.push(gpu.settings_ui(config));
-                        } else {
-                            error!("SettingsVariant::Gpu: Not found {id}");
-                        }
-                    }
-                    SettingsVariant::General => {
-                        content =
-                            content.push(settings_sub_page_heading!(SETTINGS_GENERAL_HEADING));
-                        content = content.push(self.general_settings_ui());
-                    }
-                    SettingsVariant::About => {
-                        content = content.push(settings_sub_page_heading!(SETTINGS_ABOUT_HEADING));
-                        content = content.push(self.about_settings_ui());
-                    }
-                }
-
-            // List settings overview
-            } else {
-                if let Some(sysmon) = get_sysmon(&self.config.sysmon) {
-                    let target = format!("{} {}", fl!("settings-launch"), sysmon.name);
-                    if let Some(launch_name) = SYSMON_LAUNCH_NAMES
-                        .iter()
-                        .find(|s| s.as_str() == target)
-                        .map(String::as_str)
-                    {
-                        let launch_sysmon_button =
-                            list::ListColumn::new().add(Minimon::action_with_item(
-                                launch_name,
-                                text::body(""),
-                                ActionIcon::Launch,
-                                Message::LaunchSystemMonitor(sysmon),
-                            ));
-                        content = content.push(launch_sysmon_button);
-                    }
-                }
-
-                let cpu = widget::text::body(self.cpu.to_string());
-                let cputemp = widget::text::body(self.cputemp.to_string());
-                let memory = widget::text::body(format!(
-                    "{} / {:.1} GB / {:.1} GB",
-                    self.memory.to_string(false),
-                    self.memory.latest_sample_allocated(),
-                    self.memory.total()
-                ));
-
-                let sample_rate_ms = self.config.refresh_rate;
-                let network = widget::text::body(format!(
-                    "↓ {} ↑ {}",
-                    &self
-                        .network1
-                        .download_label(sample_rate_ms, network::UnitVariant::Long),
-                    &self
-                        .network1
-                        .upload_label(sample_rate_ms, network::UnitVariant::Long)
-                ));
-
-                let disks = widget::text::body(format!(
-                    "w {} r {}",
-                    &self
-                        .disks1
-                        .write_label(sample_rate_ms, disks::UnitVariant::Long),
-                    &self
-                        .disks1
-                        .read_label(sample_rate_ms, disks::UnitVariant::Long)
-                ));
-
-                let mut sensor_settings = list::ListColumn::new()
-                    .add(Minimon::action_with_item(
-                        &SETTINGS_GENERAL_HEADING,
-                        text::body(""),
-                        ActionIcon::Next,
-                        Message::Settings(Some(SettingsVariant::General)),
-                    ))
-                    .add(Minimon::action_with_item(
-                        &SETTINGS_CPU_CHOICE,
-                        cpu,
-                        ActionIcon::Next,
-                        Message::Settings(Some(SettingsVariant::Cpu)),
-                    ));
-
-                if self.cputemp.is_found() {
-                    sensor_settings = sensor_settings.add(Minimon::action_with_item(
-                        &SETTINGS_CPU_TEMP_CHOICE,
-                        cputemp,
-                        ActionIcon::Next,
-                        Message::Settings(Some(SettingsVariant::CpuTemp)),
-                    ));
-                }
-
-                sensor_settings = sensor_settings
-                    .add(Minimon::action_with_item(
-                        &SETTINGS_MEMORY_CHOICE,
-                        memory,
-                        ActionIcon::Next,
-                        Message::Settings(Some(SettingsVariant::Memory)),
-                    ))
-                    .add(Minimon::action_with_item(
-                        &SETTINGS_NETWORK_CHOICE,
-                        network,
-                        ActionIcon::Next,
-                        Message::Settings(Some(SettingsVariant::Network)),
-                    ))
-                    .add(Minimon::action_with_item(
-                        &SETTINGS_DISKS_CHOICE,
-                        disks,
-                        ActionIcon::Next,
-                        Message::Settings(Some(SettingsVariant::Disks)),
-                    ));
-
-                if self.has_gpus() {
-                    for (key, gpu) in self.gpus.iter() {
-                        let temp = gpu.temp.to_string();
-
-                        let info = widget::text::body(format!(
-                            "{} {} / {:.2} GB {}",
-                            gpu.gpu,
-                            gpu.vram.string(false),
-                            gpu.vram.total(),
-                            temp
-                        ));
-
-                        sensor_settings = sensor_settings.add(Minimon::action_with_item(
-                            &SETTINGS_GPU_CHOICE,
-                            info,
-                            ActionIcon::Next,
-                            Message::Settings(Some(SettingsVariant::Gpu(key.clone()))),
-                        ));
-                    }
-                }
-
-                content = content.push(sensor_settings);
-
-                let mut extras_button = list::ListColumn::new().add(Minimon::action_with_item(
-                    &SETTINGS_ABOUT,
-                    text::body(""),
-                    ActionIcon::Next,
-                    Message::Settings(Some(SettingsVariant::About)),
-                ));
-
-                extras_button = extras_button.add(Minimon::action_with_item(
-                    &SETTINGS_TIP,
-                    text::body(""),
-                    ActionIcon::Tip,
-                    Message::LaunchWebbrowser("https://ko-fi.com/hyperchaotic".to_string()),
-                ));
-
-                content = content.push(extras_button);
+            let content = match &self.settings_page {
+                None => self.overview_page(get_sysmon(&self.config.sysmon)),
+                Some(SettingsVariant::General) => self.general_settings_page(),
+                Some(SettingsVariant::Cpu) => self.cpu_settings_page(),
+                Some(SettingsVariant::Memory) => self.memory_settings_page(),
+                Some(SettingsVariant::Network) => self.network_settings_page(),
+                Some(SettingsVariant::Disks) => self.disks_settings_page(),
+                Some(SettingsVariant::Gpu(id)) => self.gpu_settings_page(id),
+                Some(SettingsVariant::About) => self.about_settings_page(),
             }
+            .padding(padding)
+            .spacing(spacing.space_s);
 
-            content = content.padding(padding).spacing(padding);
-
-            //let content = column!(sensor_settings);
             let limits = Limits::NONE
                 .max_width(380.0)
                 .min_width(360.0)
@@ -1027,6 +762,7 @@ impl cosmic::Application for Minimon {
                 }
                 self.config.network2.variant = NetworkVariant::Upload;
                 self.save_config();
+                self.rebuild_settings_tabs();
             }
 
             Message::ToggleDisksCombined(toggle) => {
@@ -1038,6 +774,7 @@ impl cosmic::Application for Minimon {
                 }
                 self.config.disks2.variant = DisksVariant::Read;
                 self.save_config();
+                self.rebuild_settings_tabs();
             }
 
             Message::ToggleDisksChart(variant, toggled) => {
@@ -1350,6 +1087,16 @@ impl cosmic::Application for Minimon {
             Message::Settings(setting) => {
                 info!("Message::Settings({setting:?})");
                 self.settings_page = setting;
+                self.rebuild_settings_tabs();
+            }
+
+            Message::SettingsTabSelected(entity) => {
+                self.settings_tabs.activate(entity);
+            }
+
+            Message::LaunchWebbrowser(url) => {
+                info!("Message::LaunchWebbrowser({url})");
+                Minimon::launch_webbrowser(&url);
             }
             Message::SysmonSelect(idx) => {
                 let name: Option<String> = SYSMON_NAMES.get(idx).map(|s| s.to_string());
@@ -1467,8 +1214,13 @@ impl cosmic::Application for Minimon {
                 }
             }
             Message::ChangeContentOrder(order_change) => {
+                // Both indices are baked into the message when the row is drawn,
+                // so a shorter order arriving from the config watcher in between
+                // would make the swap panic.
+                let len = self.config.content_order.order.len();
                 if order_change.new_index == order_change.current_index
-                    || order_change.new_index >= self.config.content_order.order.len()
+                    || order_change.new_index >= len
+                    || order_change.current_index >= len
                 {
                     return Task::none();
                 }
@@ -1478,9 +1230,6 @@ impl cosmic::Application for Minimon {
                     .order
                     .swap(order_change.current_index, order_change.new_index);
                 self.save_config();
-            }
-            Message::LaunchWebbrowser(url) => {
-                Self::launch_webbrowser(&url);
             }
         }
         Task::none()
@@ -1501,6 +1250,7 @@ impl Minimon {
         self.disks1.update_config(&config.disks1, rr);
         self.disks2.update_config(&config.disks2, rr);
         self.sync_gpu_configs();
+        self.rebuild_settings_tabs();
 
         // Track whether anything is visible on the panel, or just the app-icon
         {
@@ -1530,255 +1280,577 @@ impl Minimon {
         self.calculate_max_label_widths();
     }
 
-    pub fn sub_page_header<'a, Message: 'static + Clone>(
-        sub_page: Option<&'a str>,
-        parent_page: &'a str,
-        on_press: Message,
-    ) -> Element<'a, Message> {
-        let previous_button = widget::button::icon(widget::icon::from_name("go-previous-symbolic"))
-            .extra_small()
-            .padding(0)
-            .label(parent_page)
-            .spacing(4)
-            .class(widget::button::ButtonClass::Link)
-            .on_press(on_press);
+    /// Static information shown on the about page.
+    fn about() -> About {
+        About::default()
+            .name("Minimon")
+            .icon(widget::icon::from_name(ICON).handle())
+            .version(env!("CARGO_PKG_VERSION"))
+            .author("Hyperchaotic")
+            .developers([("Hyperchaotic", "hyperchaotic@gmail.com")])
+            .links([
+                (*ABOUT_LINKS_MAIN, REPOSITORY_URL),
+                (*ABOUT_LINKS_ISSUES, TIP_URL),
+            ])
+            .license(LICENSE)
+            .license_url(LICENSE_URL)
+            .comments(fl!("app-description"))
+    }
 
-        if let Some(p) = sub_page {
-            let sub_page_header = widget::row::with_capacity(2).push(text::title3(p));
+    /// Rebuilds the tab bar for the page currently open. Sensors with a single
+    /// reading end up with an empty model and no tab bar at all.
+    fn rebuild_settings_tabs(&mut self) {
+        let previous = self.settings_tab();
+        let mut tabs = segmented_button::Model::builder();
 
-            widget::column::with_capacity(2)
-                .push(previous_button)
-                .push(sub_page_header)
-                .spacing(6)
-                .width(iced::Length::Shrink)
-                .into()
-        } else {
-            widget::column::with_capacity(2)
-                .push(previous_button)
-                .spacing(6)
-                .width(iced::Length::Shrink)
-                .into()
+        match &self.settings_page {
+            Some(SettingsVariant::Cpu) if self.cputemp.is_found() => {
+                tabs = tabs
+                    .insert(|tab| {
+                        tab.text(fl!("tab-load"))
+                            .data(SettingsTab::CpuLoad)
+                            .activate()
+                    })
+                    .insert(|tab| tab.text(fl!("tab-temperature")).data(SettingsTab::CpuTemp));
+            }
+            Some(SettingsVariant::Network)
+                if self.config.network1.variant != NetworkVariant::Combined =>
+            {
+                tabs = tabs
+                    .insert(|tab| {
+                        tab.text(fl!("tab-download"))
+                            .data(SettingsTab::NetworkDownload)
+                            .activate()
+                    })
+                    .insert(|tab| tab.text(fl!("tab-upload")).data(SettingsTab::NetworkUpload));
+            }
+            Some(SettingsVariant::Disks)
+                if self.config.disks1.variant != DisksVariant::Combined =>
+            {
+                tabs = tabs
+                    .insert(|tab| {
+                        tab.text(fl!("tab-write"))
+                            .data(SettingsTab::DisksWrite)
+                            .activate()
+                    })
+                    .insert(|tab| tab.text(fl!("tab-read")).data(SettingsTab::DisksRead));
+            }
+            Some(SettingsVariant::Gpu(_)) => {
+                tabs = tabs
+                    .insert(|tab| {
+                        tab.text(fl!("tab-gpu-load"))
+                            .data(SettingsTab::GpuLoad)
+                            .activate()
+                    })
+                    .insert(|tab| tab.text(fl!("tab-temperature")).data(SettingsTab::GpuTemp))
+                    .insert(|tab| tab.text(fl!("tab-vram-load")).data(SettingsTab::GpuVram));
+            }
+            _ => {}
+        }
+
+        self.settings_tabs = tabs.build();
+
+        // Stay on the reading the user was looking at, as long as it still has
+        // a tab of its own.
+        if let Some(previous) = previous {
+            let restored = self
+                .settings_tabs
+                .iter()
+                .find(|&tab| self.settings_tabs.data::<SettingsTab>(tab) == Some(&previous));
+
+            if let Some(tab) = restored {
+                self.settings_tabs.activate(tab);
+            }
         }
     }
 
-    pub fn action_with_item<'a, Msg: 'static>(
-        description: &'a str,
-        item: impl Into<cosmic::Element<'a, Msg>>,
-        icon: ActionIcon,
-        msg_opt: impl Into<Option<Msg>>,
-    ) -> list::ListButton<'a, Msg> {
-        settings::item_row(vec![
-            text::body(description)
-                .width(Length::Fill)
-                .wrapping(Wrapping::Word)
-                .into(),
-            row::with_capacity(2)
-                .push(item)
-                .push(icon.element())
-                .align_y(Alignment::Center)
-                .spacing(cosmic::theme::spacing().space_s)
-                .into(),
-        ])
-        .apply(list::button)
-        .on_press_maybe(msg_opt.into())
+    /// Name of a GPU as it appears in the settings. Product names are long
+    /// enough to break the layout, so they are only shown on the GPU's own
+    /// page, and a number tells several of them apart.
+    fn gpu_label(&self, id: &str) -> String {
+        if self.gpus.len() < 2 {
+            return (*SETTINGS_GPU_CHOICE).to_owned();
+        }
+
+        let index = self.gpus.iter().position(|(key, _)| key == id).unwrap_or(0);
+        format!("{} {}", *SETTINGS_GPU_CHOICE, index + 1)
     }
 
-    fn about_settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
-        let icon_row = row!(
-            space::horizontal(),
-            cosmic::widget::icon::from_name(ICON)
-                .symbolic(false)
-                .icon()
-                .size(100),
-            space::horizontal()
+    /// The reading the open sensor page is currently showing settings for.
+    fn settings_tab(&self) -> Option<SettingsTab> {
+        self.settings_tabs.active_data::<SettingsTab>().copied()
+    }
+
+    /// Scales a chart down to the preview shown in a sensor page header.
+    fn chart_preview(
+        chart: widget::Container<'_, Message, cosmic::Theme, cosmic::Renderer>,
+    ) -> Element<'_, Message> {
+        chart
+            .width(ui::PREVIEW_SIZE)
+            .height(ui::PREVIEW_SIZE)
+            .into()
+    }
+
+    /// Frame shared by every sensor page: back link, header, tab bar and the
+    /// settings sections of the currently selected reading.
+    fn sensor_page<'a>(
+        &'a self,
+        title: impl Into<std::borrow::Cow<'a, str>> + 'a,
+        subtitle: Option<String>,
+        values: Vec<String>,
+        preview: Element<'a, Message>,
+        sections: Vec<Element<'a, Message>>,
+    ) -> SettingsColumn<'a> {
+        let mut content = Column::new()
+            .push(ui::back_button(&SETTINGS_BACK, Message::Settings(None)))
+            .push(ui::sensor_header(title, values, preview))
+            .push_maybe(subtitle.map(text::caption));
+
+        if self.settings_tabs.len() > 1 {
+            content = content.push(
+                widget::tab_bar::horizontal(&self.settings_tabs)
+                    .on_activate(Message::SettingsTabSelected),
+            );
+        }
+
+        for section in sections {
+            content = content.push(section);
+        }
+
+        content
+    }
+
+    /// The page opened first: everything that can be configured, one row each.
+    fn overview_page(
+        &self,
+        sysmon: Option<&'static system_monitors::DesktopApp>,
+    ) -> SettingsColumn<'_> {
+        let mut content = Column::new();
+
+        if let Some(sysmon) = sysmon {
+            let label = format!("{} {}", fl!("settings-launch"), sysmon.name);
+            content = content.push(settings::section().add(ui::action_row(
+                label,
+                widget::button::link::icon().icon(),
+                Message::LaunchSystemMonitor(sysmon),
+            )));
+        }
+
+        let sample_rate_ms = self.config.refresh_rate;
+
+        let cpu = if self.cputemp.is_found() {
+            format!("{} | {}", self.cpu, self.cputemp)
+        } else {
+            self.cpu.to_string()
+        };
+
+        let memory = if self.config.memory.show_allocated {
+            format!(
+                "{} / {:.1} GB / {:.1} GB",
+                self.memory.to_string(false),
+                self.memory.latest_sample_allocated(),
+                self.memory.total()
+            )
+        } else {
+            format!(
+                "{} / {:.1} GB",
+                self.memory.to_string(false),
+                self.memory.total()
+            )
+        };
+
+        let network = format!(
+            "↓ {} | ↑ {}",
+            self.network1
+                .download_label(sample_rate_ms, network::UnitVariant::Long),
+            self.network1
+                .upload_label(sample_rate_ms, network::UnitVariant::Long)
         );
 
-        let name_row = row!(
-            space::horizontal(),
-            text::heading(format!("Minimon for COSMIC")),
-            space::horizontal()
+        let disks = format!(
+            "W {} | R {}",
+            self.disks1
+                .write_label(sample_rate_ms, disks::UnitVariant::Long),
+            self.disks1
+                .read_label(sample_rate_ms, disks::UnitVariant::Long)
         );
 
-        let developer_row = row!(
-            space::horizontal(),
-            text::caption_heading("Hyperchaotic"),
-            space::horizontal()
-        );
-
-        let version_row = row!(
-            space::horizontal(),
-            text::body(format!("Version {}", env!("CARGO_PKG_VERSION"))),
-            space::horizontal()
-        );
-
-        let links_row = list::ListColumn::new()
-            .add(Minimon::action_with_item(
-                &ABOUT_LINKS_MAIN,
-                text::body(""),
-                ActionIcon::Hyperlink,
-                Message::LaunchWebbrowser(
-                    "https://github.com/cosmic-utils/minimon-applet/".to_string(),
-                ),
+        let mut sensors = settings::section()
+            .add(ui::go_next_row(
+                *SETTINGS_GENERAL_HEADING,
+                Message::Settings(Some(SettingsVariant::General)),
             ))
-            .add(Minimon::action_with_item(
-                &ABOUT_LINKS_ISSUES,
-                text::body(""),
-                ActionIcon::Hyperlink,
-                Message::LaunchWebbrowser(
-                    "https://github.com/cosmic-utils/minimon-applet/issues/".to_string(),
-                ),
+            .add(ui::go_next_value_row(
+                *SETTINGS_CPU_CHOICE,
+                cpu,
+                Message::Settings(Some(SettingsVariant::Cpu)),
+            ))
+            .add(ui::go_next_value_row(
+                *SETTINGS_MEMORY_CHOICE,
+                memory,
+                Message::Settings(Some(SettingsVariant::Memory)),
+            ))
+            .add(ui::go_next_value_row(
+                *SETTINGS_NETWORK_CHOICE,
+                network,
+                Message::Settings(Some(SettingsVariant::Network)),
+            ))
+            .add(ui::go_next_value_row(
+                *SETTINGS_DISKS_CHOICE,
+                disks,
+                Message::Settings(Some(SettingsVariant::Disks)),
             ));
 
-        let license_row = list::ListColumn::new().add(Minimon::action_with_item(
-            &LICENSE,
-            text::body(""),
-            ActionIcon::Hyperlink,
-            Message::LaunchWebbrowser(
-                "https://github.com/cosmic-utils/minimon-applet/edit/main/LICENSE".to_string(),
-            ),
-        ));
+        for (id, gpu) in self.gpus.iter() {
+            let info = format!(
+                "{} {} / {:.1} GB | {}",
+                gpu.gpu,
+                gpu.vram.string(false),
+                gpu.vram.total(),
+                gpu.temp
+            );
+            sensors = sensors.add(ui::go_next_value_row(
+                self.gpu_label(id),
+                info,
+                Message::Settings(Some(SettingsVariant::Gpu(id.clone()))),
+            ));
+        }
 
-        // Combine rows into a column with spacing
-        column!(
-            icon_row,
-            name_row,
-            developer_row,
-            version_row,
-            widget::text::heading(fl!("about-links")),
-            links_row,
-            widget::text::heading(fl!("about-license")),
-            license_row
+        content.push(sensors).push(
+            settings::section()
+                .add(ui::go_next_row(
+                    *SETTINGS_ABOUT_CHOICE,
+                    Message::Settings(Some(SettingsVariant::About)),
+                ))
+                .add(ui::action_row(
+                    *SETTINGS_TIP,
+                    ui::tip_icon(),
+                    Message::LaunchWebbrowser(TIP_URL.to_owned()),
+                )),
         )
-        .spacing(10)
-        .into()
     }
 
-    fn general_settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
+    /// Settings that are not tied to a single sensor.
+    fn general_settings_page(&self) -> SettingsColumn<'_> {
         let refresh_rate = f64::from(self.config.refresh_rate) / 1000.0;
 
-        // Create settings rows
-        let refresh_row = settings::item(
-            fl!("refresh-rate"),
-            spin_button(
-                format!("{refresh_rate:.2}"),
-                refresh_rate,
-                0.250,
-                0.250,
-                15.00,
-                Message::RefreshRateChanged,
-            ),
-        );
-
-        let value_size_row = settings::item(
-            fl!("change-value-size"),
-            spin_button(
-                self.config.value_size_default.to_string(),
-                self.config.value_size_default,
-                1,
-                5,
-                20,
-                Message::ValueSizeChanged,
-            ),
-        );
-
-        let mono_row = settings::item(
-            fl!("settings-monospace_font"),
-            row!(
-                widget::checkbox(self.config.monospace_values)
-                    .on_toggle(Message::ToggleMonospaceValues)
-            ),
-        );
-
-        let spacing_row = settings::item(
-            fl!("settings-panel-spacing"),
-            widget::row::with_children(vec![
-                text::body(fl!("settings-small")).into(),
-                widget::slider(1..=6, self.config.panel_spacing, Message::PanelSpacing)
-                    .width(100)
-                    .into(),
-                text::body(fl!("settings-large")).into(),
-            ])
-            .align_y(Alignment::Center)
-            .spacing(8),
-        );
-
-        let idx = self
+        let sysmon_index = self
             .config
             .sysmon
             .as_ref()
-            .and_then(|n| SYSMON_NAMES.iter().position(|&app_name| app_name == n));
+            .and_then(|name| SYSMON_NAMES.iter().position(|&app| app == name));
 
-        let sysmon_row = settings::item(
-            fl!("choose-sysmon"),
-            row!(widget::dropdown(&*SYSMON_NAMES, idx, Message::SysmonSelect).width(220)),
-        );
+        let general = settings::section()
+            .add(settings::item(
+                fl!("refresh-rate"),
+                spin_button(
+                    format!("{refresh_rate:.2}"),
+                    refresh_rate,
+                    0.250,
+                    0.250,
+                    15.00,
+                    Message::RefreshRateChanged,
+                ),
+            ))
+            .add(settings::item(
+                fl!("change-value-size"),
+                spin_button(
+                    self.config.value_size_default.to_string(),
+                    self.config.value_size_default,
+                    1,
+                    5,
+                    20,
+                    Message::ValueSizeChanged,
+                ),
+            ))
+            .add(
+                settings::item::builder(fl!("settings-monospace_font"))
+                    .toggler(self.config.monospace_values, Message::ToggleMonospaceValues),
+            )
+            .add(settings::item(
+                fl!("settings-panel-spacing"),
+                widget::row::with_capacity(3)
+                    .push(text::body(fl!("settings-small")))
+                    .push(
+                        widget::slider(1..=6, self.config.panel_spacing, Message::PanelSpacing)
+                            .width(100),
+                    )
+                    .push(text::body(fl!("settings-large")))
+                    .align_y(Alignment::Center)
+                    .spacing(cosmic::theme::spacing().space_xxs),
+            ))
+            .add(settings::item(
+                fl!("choose-sysmon"),
+                widget::dropdown(&*SYSMON_NAMES, sysmon_index, Message::SysmonSelect).width(180),
+            ));
 
-        let content_items = Column::from_vec({
-            let mut children = Vec::new();
+        let mut order = settings::section().title(fl!("content-order"));
 
-            for (index, content) in self.config.content_order.order.iter().enumerate() {
-                let item = match content {
-                    ContentType::CpuUsage => text(fl!("settings-cpu")),
-                    ContentType::CpuTemp => {
-                        if !self.cputemp.is_found() {
-                            continue;
-                        }
-                        text(fl!("settings-cpu-temperature"))
+        // Entries for hardware that is not present are left out, so the arrows
+        // have to swap with the neighbouring *visible* entry rather than with
+        // whatever happens to sit next in the list.
+        let visible: Vec<(usize, String)> = self
+            .config
+            .content_order
+            .order
+            .iter()
+            .enumerate()
+            .filter_map(|(index, content)| {
+                let label = match content {
+                    ContentType::CpuUsage => fl!("settings-cpu"),
+                    ContentType::CpuTemp if self.cputemp.is_found() => {
+                        fl!("settings-cpu-temperature")
                     }
-                    ContentType::MemoryUsage => text(fl!("settings-memory")),
-                    ContentType::NetworkUsage => text(fl!("settings-network")),
-                    ContentType::DiskUsage => text(fl!("settings-disks")),
-                    ContentType::GpuInfo => {
-                        if self.gpus.is_empty() {
-                            continue;
-                        }
-                        text(fl!("settings-gpu"))
-                    }
+                    ContentType::MemoryUsage => fl!("settings-memory"),
+                    ContentType::NetworkUsage => fl!("settings-network"),
+                    ContentType::DiskUsage => fl!("settings-disks"),
+                    ContentType::GpuInfo if self.has_gpus() => fl!("settings-gpu"),
+                    ContentType::CpuTemp | ContentType::GpuInfo => return None,
                 };
+                Some((index, label))
+            })
+            .collect();
 
-                let item_row = row!(
-                    row!(
-                        button::icon(widget::icon::from_name("pan-up-symbolic").size(5)).on_press(
-                            Message::ChangeContentOrder(ContentOrderChange {
-                                current_index: index,
-                                new_index: index.saturating_sub(1)
-                            })
-                        ),
-                        button::icon(widget::icon::from_name("pan-down-symbolic").size(5))
-                            .on_press(Message::ChangeContentOrder(ContentOrderChange {
-                                current_index: index,
-                                new_index: index.saturating_add(1)
-                            })),
-                    ),
-                    item
-                )
-                .spacing(cosmic::theme::spacing().space_xxs)
-                .align_y(Alignment::Center);
+        for (position, (index, label)) in visible.iter().enumerate() {
+            let swap_with = |other: &(usize, String)| {
+                Message::ChangeContentOrder(ContentOrderChange {
+                    current_index: *index,
+                    new_index: other.0,
+                })
+            };
+            let move_up = position.checked_sub(1).map(|p| swap_with(&visible[p]));
+            let move_down = visible.get(position + 1).map(swap_with);
 
-                children.push(item_row.into())
-            }
+            order = order.add(
+                widget::row::with_capacity(3)
+                    .push(
+                        widget::button::icon(widget::icon::from_name("pan-up-symbolic"))
+                            .on_press_maybe(move_up),
+                    )
+                    .push(
+                        widget::button::icon(widget::icon::from_name("pan-down-symbolic"))
+                            .on_press_maybe(move_down),
+                    )
+                    .push(text::body(label.clone()))
+                    .align_y(Alignment::Center)
+                    .spacing(cosmic::theme::spacing().space_xxs),
+            );
+        }
 
-            children
-        })
-        .spacing(cosmic::theme::spacing().space_s);
+        Column::new()
+            .push(ui::back_button(&SETTINGS_BACK, Message::Settings(None)))
+            .push(text::title3(*SETTINGS_GENERAL_HEADING))
+            .push(general)
+            .push(order)
+    }
 
-        let content_order = row!(
-            text(fl!("content-order")),
-            space::horizontal(),
-            content_items
-        );
+    fn cpu_settings_page(&self) -> SettingsColumn<'_> {
+        if self.settings_tab() == Some(SettingsTab::CpuTemp) {
+            return self.sensor_page(
+                *SETTINGS_CPU_CHOICE,
+                None,
+                vec![self.cputemp.to_string()],
+                Minimon::chart_preview(self.cputemp.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
+                vec![self.cputemp.settings_ui()],
+            );
+        }
 
-        // Combine rows into a column with spacing
-        column!(
-            refresh_row,
-            value_size_row,
-            mono_row,
-            spacing_row,
-            sysmon_row,
-            content_order
+        // Stacked bars are as wide as the machine has cores, so the preview
+        // cannot be squeezed into a square like the other chart kinds. It still
+        // has to share the header row with the title and the reading, so a
+        // many-core machine gets a scaled down preview rather than a clipped one.
+        let preview = if self.cpu.graph_kind() == ChartKind::StackedBars {
+            let natural = StackedBarSvg::new(
+                self.config.cpu.bar_width,
+                ui::PREVIEW_SIZE,
+                self.config.cpu.bar_spacing,
+            )
+            .width(self.cpu.core_count());
+            let width = natural.min(ui::PREVIEW_MAX_WIDTH);
+            self.cpu
+                .chart(ui::PREVIEW_SIZE, natural)
+                .width(width)
+                .height(ui::PREVIEW_SIZE)
+                .into()
+        } else {
+            Minimon::chart_preview(self.cpu.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE))
+        };
+
+        self.sensor_page(
+            *SETTINGS_CPU_CHOICE,
+            None,
+            vec![self.cpu.to_string()],
+            preview,
+            vec![self.cpu.settings_ui()],
         )
-        .spacing(10)
-        .into()
+    }
+
+    fn memory_settings_page(&self) -> SettingsColumn<'_> {
+        let mut values = vec![self.memory.to_string(false)];
+        if self.config.memory.show_allocated {
+            values.push(format!("{:.1} GB", self.memory.latest_sample_allocated()));
+        }
+
+        self.sensor_page(
+            *SETTINGS_MEMORY_CHOICE,
+            None,
+            values,
+            Minimon::chart_preview(self.memory.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
+            vec![self.memory.settings_ui()],
+        )
+    }
+
+    fn network_settings_page(&self) -> SettingsColumn<'_> {
+        let sample_rate_ms = self.config.refresh_rate;
+        let combined = self.config.network1.variant == NetworkVariant::Combined;
+        let upload = self.settings_tab() == Some(SettingsTab::NetworkUpload);
+
+        let network = if upload {
+            &self.network2
+        } else {
+            &self.network1
+        };
+
+        let mut values = Vec::with_capacity(2);
+        if combined || !upload {
+            values.push(format!(
+                "↓ {}",
+                self.network1
+                    .download_label(sample_rate_ms, network::UnitVariant::Long)
+            ));
+        }
+        if combined || upload {
+            values.push(format!(
+                "↑ {}",
+                network.upload_label(sample_rate_ms, network::UnitVariant::Long)
+            ));
+        }
+
+        // The panel draws one label and one icon for the whole sensor, both read
+        // off the first config, so they belong here rather than in a tab.
+        let variant = self.config.network1.variant;
+        let device = settings::section()
+            .add(
+                settings::item::builder(fl!("enable-label"))
+                    .toggler(self.config.network1.label_visible(), move |t| {
+                        Message::ToggleNetLabel(variant, t)
+                    }),
+            )
+            .add(
+                settings::item::builder(fl!("enable-icon"))
+                    .toggler(self.config.network1.icon_visible(), move |t| {
+                        Message::ToggleNetIcon(variant, t)
+                    }),
+            )
+            .add(
+                settings::item::builder(fl!("net-use-bytes"))
+                    .toggler(self.config.network1.show_bytes, Message::ToggleNetBytes),
+            )
+            .add(
+                settings::item::builder(fl!("enable-net-combined"))
+                    .toggler(combined, Message::ToggleNetCombined),
+            );
+
+        self.sensor_page(
+            *SETTINGS_NETWORK_CHOICE,
+            None,
+            values,
+            Minimon::chart_preview(network.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
+            vec![network.settings_ui(), device.into()],
+        )
+    }
+
+    fn disks_settings_page(&self) -> SettingsColumn<'_> {
+        let sample_rate_ms = self.config.refresh_rate;
+        let combined = self.config.disks1.variant == DisksVariant::Combined;
+        let read = self.settings_tab() == Some(SettingsTab::DisksRead);
+
+        let disk = if read { &self.disks2 } else { &self.disks1 };
+
+        let mut values = Vec::with_capacity(2);
+        if combined || !read {
+            values.push(format!(
+                "W {}",
+                self.disks1
+                    .write_label(sample_rate_ms, disks::UnitVariant::Long)
+            ));
+        }
+        if combined || read {
+            values.push(format!(
+                "R {}",
+                disk.read_label(sample_rate_ms, disks::UnitVariant::Long)
+            ));
+        }
+
+        // The panel draws one label and one icon for the whole sensor, both read
+        // off the first config, so they belong here rather than in a tab.
+        let variant = self.config.disks1.variant;
+        let device = settings::section()
+            .add(
+                settings::item::builder(fl!("enable-label"))
+                    .toggler(self.config.disks1.label_visible(), move |t| {
+                        Message::ToggleDisksLabel(variant, t)
+                    }),
+            )
+            .add(
+                settings::item::builder(fl!("enable-icon"))
+                    .toggler(self.config.disks1.icon_visible(), move |t| {
+                        Message::ToggleDisksIcon(variant, t)
+                    }),
+            )
+            .add(
+                settings::item::builder(fl!("enable-disks-combined"))
+                    .toggler(combined, Message::ToggleDisksCombined),
+            );
+
+        self.sensor_page(
+            *SETTINGS_DISKS_CHOICE,
+            None,
+            values,
+            Minimon::chart_preview(disk.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
+            vec![disk.settings_ui(), device.into()],
+        )
+    }
+
+    fn gpu_settings_page(&self, id: &str) -> SettingsColumn<'_> {
+        let (Some(gpu), Some(config)) = (self.gpus.get(id), self.config.gpus.get(id)) else {
+            error!("SettingsVariant::Gpu: Not found {id}");
+            return Column::new().push(ui::back_button(&SETTINGS_BACK, Message::Settings(None)));
+        };
+
+        let (value, preview, section) = match self.settings_tab() {
+            Some(SettingsTab::GpuTemp) => (
+                gpu.temp.to_string(),
+                Minimon::chart_preview(gpu.temp.chart()),
+                gpu.settings_temp_ui(&config.temp),
+            ),
+            Some(SettingsTab::GpuVram) => (
+                gpu.vram.string(false),
+                Minimon::chart_preview(gpu.vram.chart()),
+                gpu.settings_vram_ui(&config.vram),
+            ),
+            _ => (
+                gpu.gpu.to_string(),
+                Minimon::chart_preview(gpu.gpu.chart()),
+                gpu.settings_usage_ui(&config.usage),
+            ),
+        };
+
+        self.sensor_page(
+            self.gpu_label(id),
+            Some(gpu.name()),
+            vec![value],
+            preview,
+            vec![section, gpu.settings_device_ui(config)],
+        )
+    }
+
+    fn about_settings_page(&self) -> SettingsColumn<'_> {
+        Column::new()
+            .push(ui::back_button(&SETTINGS_BACK, Message::Settings(None)))
+            .push(widget::about(&self.about, |url| {
+                Message::LaunchWebbrowser(url.to_owned())
+            }))
     }
 
     fn push_symbolic_icon(
@@ -2563,7 +2635,14 @@ impl Minimon {
         }
     }
 
+    /// Hands a link to the desktop, from inside the sandbox if there is one.
     fn launch_webbrowser(url: &str) {
+        // The about page offers an address for every contributor, even the ones
+        // that did not leave one behind.
+        if url.is_empty() || url == "mailto:" {
+            return;
+        }
+
         let in_flatpak = std::env::var("FLATPAK_ID").is_ok();
 
         let result = if in_flatpak {
