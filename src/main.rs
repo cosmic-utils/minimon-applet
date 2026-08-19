@@ -10,6 +10,7 @@ mod i18n;
 mod sensors;
 mod svg_graph;
 mod system_monitors;
+mod ui;
 
 #[cfg(feature = "lyon_charts")]
 mod charts;

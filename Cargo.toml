@@ -33,7 +33,7 @@ bounded-vec-deque = "0.1"
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
-features = ["applet", "applet-token"]
+features = ["applet", "applet-token", "about"]
 
 [dependencies.i18n-embed]
 version = "0.16"

@@ -1,6 +1,6 @@
 use bounded_vec_deque::BoundedVecDeque;
 
-use cosmic::{Element, widget::Column, widget::Container, widget::Row};
+use cosmic::Element;
 use log::info;
 use sysinfo::Networks;
 
@@ -15,10 +15,7 @@ use cosmic::widget;
 use cosmic::widget::settings;
 
 use crate::app::Message;
-use cosmic::iced::{
-    Alignment,
-    widget::{column, row},
-};
+use crate::ui;
 use std::any::Any;
 
 use super::Sensor;
@@ -254,144 +251,60 @@ impl Sensor for Network {
     }
 
     fn settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
-        let theme = cosmic::theme::active();
-        let cosmic = theme.cosmic();
-        let mut net_elements = Vec::new();
-
-        let sample_rate_ms = self.refresh_rate;
-
-        let dlrate = format!(
-            "↓ {}",
-            &self.download_label(sample_rate_ms, UnitVariant::Long)
-        );
-
-        let ulrate = format!(
-            "↑ {}",
-            &self.upload_label(sample_rate_ms, UnitVariant::Long)
-        );
-
         let config = &self.config;
-        let k = self.config.variant;
+        let variant = config.variant;
 
-        let mut rate = column!(
-            Container::new(self.chart(60, 60).width(60).height(60))
-                .width(90)
-                .align_x(Alignment::Center)
-        );
-
-        rate = rate.push(Element::from(cosmic::widget::text::body("")));
-
-        match self.config.variant {
-            NetworkVariant::Combined => {
-                rate = rate.push(
-                    cosmic::widget::text::body(dlrate)
-                        .width(90)
-                        .align_x(Alignment::Center),
-                );
-                rate = rate.push(
-                    cosmic::widget::text::body(ulrate)
-                        .width(90)
-                        .align_x(Alignment::Center),
-                );
-            }
-            NetworkVariant::Download => {
-                rate = rate.push(
-                    cosmic::widget::text::body(dlrate)
-                        .width(90)
-                        .align_x(Alignment::Center),
-                );
-            }
-            NetworkVariant::Upload => {
-                rate = rate.push(
-                    cosmic::widget::text::body(ulrate)
-                        .width(90)
-                        .align_x(Alignment::Center),
-                );
-            }
-        }
-        net_elements.push(Element::from(rate));
-
-        let mut net_bandwidth_items = Vec::new();
-
-        net_bandwidth_items.push(
-            settings::item(
-                fl!("enable-chart"),
-                widget::toggler(config.chart_visible())
-                    .on_toggle(move |t| Message::ToggleNetChart(k, t)),
+        let mut section = settings::section()
+            .add(
+                settings::item::builder(fl!("enable-chart"))
+                    .toggler(config.chart_visible(), move |t| {
+                        Message::ToggleNetChart(variant, t)
+                    }),
             )
-            .into(),
-        );
-        net_bandwidth_items.push(
-            settings::item(
-                fl!("enable-value"),
-                widget::toggler(config.value_visible())
-                    .on_toggle(move |t| Message::ToggleNetValue(k, t)),
+            .add(
+                settings::item::builder(fl!("enable-value"))
+                    .toggler(config.value_visible(), move |t| {
+                        Message::ToggleNetValue(variant, t)
+                    }),
             )
-            .into(),
-        );
-        net_bandwidth_items.push(
-            settings::item(
-                fl!("use-adaptive"),
-                row!(
-                    widget::checkbox(config.adaptive)
-                        .on_toggle(move |t| Message::ToggleAdaptiveNet(k, t))
-                ),
-            )
-            .into(),
-        );
+            .add(
+                settings::item::builder(fl!("use-adaptive")).toggler(config.adaptive, move |t| {
+                    Message::ToggleAdaptiveNet(variant, t)
+                }),
+            );
 
         if !config.adaptive {
-            net_bandwidth_items.push(
-                settings::item(
-                    fl!("net-bandwidth"),
-                    row!(
+            section = section.add(settings::item(
+                fl!("net-bandwidth"),
+                widget::row::with_capacity(2)
+                    .push(
                         widget::text_input("", config.bandwidth.to_string())
                             .width(100)
-                            .on_input(move |b| Message::TextInputBandwidthChanged(k, b)),
+                            .on_input(move |b| Message::TextInputBandwidthChanged(variant, b)),
+                    )
+                    .push(
                         widget::dropdown(&self.dropdown_options, config.unit, move |u| {
-                            Message::NetworkSelectUnit(k, u)
-                        },)
-                        .width(50)
-                    ),
-                )
-                .into(),
-            );
+                            Message::NetworkSelectUnit(variant, u)
+                        })
+                        .width(70),
+                    )
+                    .spacing(cosmic::theme::spacing().space_xxs),
+            ));
         }
 
-        net_bandwidth_items.push(
-            row!(
-                widget::space::horizontal(),
-                widget::button::standard(fl!("change-colors")).on_press(Message::ColorPickerOpen(
-                    DeviceKind::Network(self.config.variant),
-                    ChartKind::Line,
-                    None
-                )),
-                widget::space::horizontal()
-            )
-            .into(),
-        );
-
-        let net_right_column = Column::with_children(net_bandwidth_items);
-
-        net_elements.push(Element::from(net_right_column.spacing(cosmic.space_xs())));
-
-        let title_content = match (config.show_bytes, self.config.variant) {
-            (true, NetworkVariant::Combined) => fl!("net-title-combined-bytes"),
-            (true, NetworkVariant::Download) => fl!("net-title-dl-bytes"),
-            (true, NetworkVariant::Upload) => fl!("net-title-ul-bytes"),
-            (false, NetworkVariant::Combined) => fl!("net-title-combined"),
-            (false, NetworkVariant::Download) => fl!("net-title-dl"),
-            (false, NetworkVariant::Upload) => fl!("net-title-ul"),
+        // The upload chart is drawn with the second graph color.
+        let swatch = if variant == NetworkVariant::Upload {
+            config.colors().graph2
+        } else {
+            config.colors().graph1
         };
 
-        let title = widget::text::heading(title_content);
-
-        column![
-            title,
-            Row::with_children(net_elements).align_y(Alignment::Center)
-        ]
-        .spacing(cosmic::theme::spacing().space_xs)
-        .into()
+        section
+            .add(ui::chart_color_row(
+                swatch,
+                Message::ColorPickerOpen(DeviceKind::Network(variant), ChartKind::Line, None),
+            ))
+            .into()
     }
 }
 

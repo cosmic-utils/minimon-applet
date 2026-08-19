@@ -1,5 +1,4 @@
 use bounded_vec_deque::BoundedVecDeque;
-use cosmic::iced::Alignment::Center;
 use cosmic::{Element, Renderer, Theme};
 use log::info;
 use std::collections::BTreeMap;
@@ -7,20 +6,13 @@ use std::fmt::Write;
 
 use crate::sensors::gpu::GpuType;
 use crate::sensors::{GpuConfig, INVALID_IMG};
-use cosmic::widget::{self, Column, Container};
-use cosmic::widget::{settings, toggler};
-use cosmic::{
-    iced::{
-        Alignment,
-        widget::{column, row},
-    },
-    widget::Row,
-};
+use cosmic::widget::settings;
 
 use super::TempUnit;
 use crate::app::Message;
 use crate::colorpicker::DemoGraph;
 use crate::config::DeviceKind;
+use crate::ui;
 use crate::{
     config::{ChartColors, ChartKind, ColorVariant, GpuTempConfig, GpuUsageConfig, GpuVramConfig},
     fl,
@@ -129,6 +121,10 @@ impl Gpus {
 
     pub fn is_empty(&self) -> bool {
         self.gpus.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.gpus.len()
     }
 }
 
@@ -931,291 +927,175 @@ impl Gpu {
         self.gpu_if.gpu_type()
     }
 
-    fn settings_usage_ui(
+    /// Settings for the GPU load chart.
+    pub fn settings_usage_ui(
         &'_ self,
         config: &crate::config::GpuUsageConfig,
     ) -> Element<'_, crate::app::Message> {
-        let theme = cosmic::theme::active();
-        let cosmic = theme.cosmic();
-
-        let mut gpu_elements = Vec::new();
-
-        let usage = self.gpu.to_string();
-        gpu_elements.push(Element::from(
-            column!(
-                Container::new(self.gpu.chart().width(60).height(60))
-                    .width(90)
-                    .align_x(Alignment::Center),
-                cosmic::widget::text::body(usage.to_string())
-                    .width(90)
-                    .align_x(Alignment::Center)
-            )
-            .padding(cosmic::theme::spacing().space_xs)
-            .align_x(Alignment::Center),
-        ));
-
-        let gpu_kind = self.gpu.graph_kind();
-        let selected: Option<usize> = Some(gpu_kind.into());
+        let kind = self.gpu.graph_kind();
         let id = self.id();
-        gpu_elements.push(Element::from(
-            column!(
-                settings::item(
-                    fl!("enable-chart"),
-                    toggler(config.chart_visible()).on_toggle(move |value| {
-                        Message::GpuToggleChart(self.id(), DeviceKind::Gpu, value)
-                    }),
-                ),
-                settings::item(
-                    fl!("enable-value"),
-                    toggler(config.value_visible()).on_toggle(move |value| {
-                        Message::GpuToggleValue(self.id(), DeviceKind::Gpu, value)
-                    }),
-                ),
-                row!(
-                    widget::text::body(fl!("chart-type")),
-                    widget::dropdown(&self.gpu.graph_options, selected, move |m| {
-                        Message::GpuSelectGraphType(id.clone(), DeviceKind::Gpu, m.into())
-                    },)
-                    .width(70),
-                    widget::space::horizontal(),
-                    widget::button::standard(fl!("change-colors")).on_press(
-                        Message::ColorPickerOpen(DeviceKind::Gpu, gpu_kind, Some(self.id())),
-                    )
-                )
-                .align_y(Center),
-            )
-            .spacing(cosmic.space_xs()),
-        ));
+        let chart_id = self.id();
+        let value_id = self.id();
 
-        column![
-            widget::text::heading(fl!("gpu-title-usage")),
-            Row::with_children(gpu_elements)
-                .align_y(Alignment::Center)
-                .spacing(cosmic.space_xs())
-        ]
-        .spacing(cosmic::theme::spacing().space_xs)
-        .into()
+        settings::section()
+            .add(
+                settings::item::builder(fl!("enable-chart"))
+                    .toggler(config.chart_visible(), move |value| {
+                        Message::GpuToggleChart(chart_id.clone(), DeviceKind::Gpu, value)
+                    }),
+            )
+            .add(
+                settings::item::builder(fl!("enable-value"))
+                    .toggler(config.value_visible(), move |value| {
+                        Message::GpuToggleValue(value_id.clone(), DeviceKind::Gpu, value)
+                    }),
+            )
+            .add(ui::chart_type_row(
+                &self.gpu.graph_options,
+                Some(kind.into()),
+                move |index| Message::GpuSelectGraphType(id.clone(), DeviceKind::Gpu, index.into()),
+            ))
+            .add(ui::chart_color_row(
+                config.colors().graph1,
+                Message::ColorPickerOpen(DeviceKind::Gpu, kind, Some(self.id())),
+            ))
+            .into()
     }
 
-    fn settings_vram_ui(
+    /// Settings for the VRAM load chart.
+    pub fn settings_vram_ui(
         &'_ self,
         config: &crate::config::GpuVramConfig,
     ) -> Element<'_, crate::app::Message> {
-        let theme = cosmic::theme::active();
-        let cosmic = theme.cosmic();
-
-        // VRAM load
-        let mut vram_elements = Vec::new();
-        let vram = self.vram.string(false);
-        vram_elements.push(Element::from(
-            column!(
-                Container::new(self.vram.chart().width(60).height(60))
-                    .width(90)
-                    .align_x(Alignment::Center),
-                cosmic::widget::text::body(vram.to_string())
-                    .width(90)
-                    .align_x(Alignment::Center)
-            )
-            .padding(cosmic::theme::spacing().space_xs)
-            .align_x(Alignment::Center),
-        ));
-
-        let selected: Option<usize> = Some(self.vram.graph_kind().into());
-        let mem_kind = self.vram.graph_kind();
+        let kind = self.vram.graph_kind();
         let id = self.id();
-        vram_elements.push(Element::from(
-            column!(
-                settings::item(
-                    fl!("enable-chart"),
-                    toggler(config.chart_visible()).on_toggle(|value| {
-                        Message::GpuToggleChart(self.id(), DeviceKind::Vram, value)
-                    }),
-                ),
-                settings::item(
-                    fl!("enable-value"),
-                    toggler(config.value_visible()).on_toggle(|value| {
-                        Message::GpuToggleValue(self.id(), DeviceKind::Vram, value)
-                    }),
-                ),
-                row!(
-                    widget::text::body(fl!("chart-type")),
-                    widget::dropdown(&self.vram.graph_options, selected, move |m| {
-                        Message::GpuSelectGraphType(id.clone(), DeviceKind::Vram, m.into())
-                    },)
-                    .width(70),
-                    widget::space::horizontal(),
-                    widget::button::standard(fl!("change-colors")).on_press(
-                        Message::ColorPickerOpen(DeviceKind::Vram, mem_kind, Some(self.id())),
-                    )
-                )
-                .align_y(Center),
-            )
-            .spacing(cosmic.space_xs()),
-        ));
+        let chart_id = self.id();
+        let value_id = self.id();
 
-        column![
-            widget::text::heading(fl!("gpu-title-vram")),
-            Row::with_children(vram_elements)
-                .align_y(Alignment::Center)
-                .spacing(cosmic.space_xs())
-        ]
-        .spacing(cosmic::theme::spacing().space_xs)
-        .into()
+        settings::section()
+            .add(
+                settings::item::builder(fl!("enable-chart"))
+                    .toggler(config.chart_visible(), move |value| {
+                        Message::GpuToggleChart(chart_id.clone(), DeviceKind::Vram, value)
+                    }),
+            )
+            .add(
+                settings::item::builder(fl!("enable-value"))
+                    .toggler(config.value_visible(), move |value| {
+                        Message::GpuToggleValue(value_id.clone(), DeviceKind::Vram, value)
+                    }),
+            )
+            .add(ui::chart_type_row(
+                &self.vram.graph_options,
+                Some(kind.into()),
+                move |index| {
+                    Message::GpuSelectGraphType(id.clone(), DeviceKind::Vram, index.into())
+                },
+            ))
+            .add(ui::chart_color_row(
+                config.colors().graph1,
+                Message::ColorPickerOpen(DeviceKind::Vram, kind, Some(self.id())),
+            ))
+            .into()
     }
 
-    fn settings_temp_ui(
+    /// Settings for the GPU temperature chart.
+    pub fn settings_temp_ui(
         &'_ self,
         config: &crate::config::GpuTempConfig,
     ) -> Element<'_, crate::app::Message> {
-        let theme = cosmic::theme::active();
-        let cosmic = theme.cosmic();
+        let kind = self.temp.graph_kind();
+        let unit_id = self.id();
+        let graph_id = self.id();
+        let min_temp_id = self.id();
+        let chart_id = self.id();
+        let value_id = self.id();
 
-        // GPU temperature
-        let mut temp_elements = Vec::new();
-        let temp = self.temp.to_string();
-        temp_elements.push(Element::from(
-            column!(
-                Container::new(self.temp.chart().width(60).height(60))
-                    .width(90)
-                    .align_x(Alignment::Center),
-                cosmic::widget::text::body(temp.to_string())
-                    .width(90)
-                    .align_x(Alignment::Center)
+        settings::section()
+            .add(
+                settings::item::builder(fl!("enable-chart")).toggler(
+                    config.chart_visible(),
+                    move |value| {
+                        Message::GpuToggleChart(chart_id.clone(), DeviceKind::GpuTemp, value)
+                    },
+                ),
             )
-            .padding(cosmic::theme::spacing().space_xs)
-            .align_x(Alignment::Center),
-        ));
-
-        let selected: Option<usize> = Some(self.temp.graph_kind().into());
-        let selected_unit: Option<usize> = Some(self.temp.config.unit.into());
-        let temp_kind = self.temp.graph_kind();
-        let id1 = self.id();
-        let id2 = self.id();
-        let id3 = self.id();
-        let min_temp_val = config.min_temp;
-
-        let min_temp_input = {
-            let val_string = min_temp_val.to_string();
-            widget::text_input("", val_string)
-                .width(100)
-                .on_input(move |temp_str| {
-                    let temp = if temp_str.is_empty() {
-                        0.0
-                    } else {
-                        temp_str.parse::<f64>().unwrap_or(min_temp_val)
-                    };
-                    Message::GpuTempMinTempChanged(id3.clone(), temp)
-                })
-        };
-
-        temp_elements.push(Element::from(
-            column!(
-                settings::item(
-                    fl!("enable-chart"),
-                    toggler(config.chart_visible()).on_toggle(|value| {
-                        Message::GpuToggleChart(self.id(), DeviceKind::GpuTemp, value)
-                    }),
+            .add(
+                settings::item::builder(fl!("enable-value")).toggler(
+                    config.value_visible(),
+                    move |value| {
+                        Message::GpuToggleValue(value_id.clone(), DeviceKind::GpuTemp, value)
+                    },
                 ),
-                settings::item(
-                    fl!("enable-value"),
-                    toggler(config.value_visible()).on_toggle(|value| {
-                        Message::GpuToggleValue(self.id(), DeviceKind::GpuTemp, value)
-                    }),
-                ),
-                settings::item(
-                    fl!("temperature-unit"),
-                    widget::dropdown(&self.temp.unit_options, selected_unit, move |m| {
-                        Message::SelectGpuTempUnit(id1.clone(), m.into())
-                    },)
-                ),
-                row!(
-                    widget::text::body(fl!("chart-type")),
-                    widget::dropdown(&self.temp.graph_options, selected, move |m| {
-                        Message::GpuSelectGraphType(id2.clone(), DeviceKind::GpuTemp, m.into())
-                    },)
-                    .width(70),
-                    widget::space::horizontal(),
-                    widget::button::standard(fl!("change-colors")).on_press(
-                        Message::ColorPickerOpen(DeviceKind::GpuTemp, temp_kind, Some(self.id())),
-                    )
-                )
-                .align_y(Center),
             )
-            .push(settings::item(fl!("min-temperature"), min_temp_input))
-            .spacing(cosmic.space_xs()),
-        ));
-
-        column![
-            widget::text::heading(fl!("gpu-title-temperature")),
-            Row::with_children(temp_elements)
-                .align_y(Alignment::Center)
-                .spacing(cosmic.space_xs())
-        ]
-        .spacing(cosmic::theme::spacing().space_xs)
-        .into()
+            .add(ui::temperature_unit_row(
+                &self.temp.unit_options,
+                Some(config.unit.into()),
+                move |index| Message::SelectGpuTempUnit(unit_id.clone(), index.into()),
+            ))
+            .add(ui::min_temperature_row(config.min_temp, move |temp| {
+                Message::GpuTempMinTempChanged(min_temp_id.clone(), temp)
+            }))
+            .add(ui::chart_type_row(
+                &self.temp.graph_options,
+                Some(kind.into()),
+                move |index| {
+                    Message::GpuSelectGraphType(graph_id.clone(), DeviceKind::GpuTemp, index.into())
+                },
+            ))
+            .add(ui::chart_color_row(
+                ui::chart_swatch(config.colors(), kind),
+                Message::ColorPickerOpen(DeviceKind::GpuTemp, kind, Some(self.id())),
+            ))
+            .into()
     }
 
-    pub fn settings_ui(
+    /// Settings shared by every chart of this GPU.
+    pub fn settings_device_ui(
         &'_ self,
         config: &crate::config::GpuConfig,
     ) -> cosmic::Element<'_, crate::app::Message> {
-        let battery_disable = if self.is_laptop {
-            Some(
-                settings::item(
-                    fl!("settings-disable-on-battery"),
-                    widget::checkbox(config.pause_on_battery).on_toggle(move |value| {
-                        Message::ToggleDisableOnBattery(self.id().clone(), value)
+        // The label and icon are drawn once for the whole GPU, so they are kept
+        // out of the per-chart sections above.
+        let label_id = self.id();
+        let icon_id = self.id();
+        let stack_id = self.id();
+        let battery_id = self.id();
 
-                        //widget::toggler(config.pause_on_battery).on_toggle(move |value| {
-                        //   Message::ToggleDisableOnBattery(self.id().clone(), value)
+        let mut section = settings::section()
+            .add(
+                settings::item::builder(fl!("enable-label"))
+                    .toggler(config.usage.label_visible(), move |value| {
+                        Message::GpuToggleLabel(label_id.clone(), value)
                     }),
-                )
-                .width(340),
             )
-        } else {
-            None
-        };
+            .add(
+                settings::item::builder(fl!("enable-icon"))
+                    .toggler(config.usage.icon_visible(), move |value| {
+                        Message::GpuToggleIcon(icon_id.clone(), value)
+                    }),
+            );
 
-        let label_toggle = settings::item(
-            fl!("enable-label"),
-            widget::toggler(config.usage.label_visible())
-                .on_toggle(move |value| Message::GpuToggleLabel(self.id().clone(), value)),
-        );
+        if config.usage.value_visible() && config.vram.value_visible() {
+            section = section.add(
+                settings::item::builder(fl!("settings-gpu-stack-values"))
+                    .toggler(config.stack_values, move |value| {
+                        Message::GpuToggleStackValues(stack_id.clone(), value)
+                    }),
+            );
+        }
 
-        let icon_toggle = settings::item(
-            fl!("enable-icon"),
-            widget::toggler(config.usage.icon_visible())
-                .on_toggle(move |value| Message::GpuToggleIcon(self.id().clone(), value)),
-        );
+        if self.is_laptop {
+            section = section.add(
+                settings::item::builder(fl!("settings-power-saving-mode"))
+                    .description(fl!("settings-disable-on-battery"))
+                    .toggler(config.pause_on_battery, move |value| {
+                        Message::ToggleDisableOnBattery(battery_id.clone(), value)
+                    }),
+            );
+        }
 
-        let usage = self.settings_usage_ui(&config.usage);
-        let vram = self.settings_vram_ui(&config.vram);
-
-        let stacked = if config.vram.value_visible() && config.usage.value_visible() {
-            Some(settings::item(
-                fl!("settings-gpu-stack-values"),
-                row!(
-                    widget::toggler(config.stack_values).on_toggle(move |value| {
-                        Message::GpuToggleStackValues(self.id().clone(), value)
-                    })
-                ),
-            ))
-        } else {
-            None
-        };
-
-        let temp = self.settings_temp_ui(&config.temp);
-
-        Column::new()
-            .push_maybe(battery_disable)
-            .push(label_toggle)
-            .push(icon_toggle)
-            .push(usage)
-            .push(temp)
-            .push(vram)
-            .push_maybe(stacked)
-            .spacing(cosmic::theme::spacing().space_xs)
-            .into()
+        section.into()
     }
 }
 

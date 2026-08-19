@@ -1,4 +1,4 @@
-use cosmic::{Element, iced::Alignment::Center, widget::Container};
+use cosmic::Element;
 use sysinfo::{MemoryRefreshKind, System};
 
 use crate::{
@@ -9,19 +9,11 @@ use crate::{
     svg_graph::SvgColors,
 };
 
-use cosmic::widget;
 use cosmic::widget::{settings, toggler};
 use std::any::Any;
 
-use cosmic::{
-    iced::{
-        Alignment,
-        widget::{column, row},
-    },
-    widget::Row,
-};
-
 use crate::app::Message;
+use crate::ui;
 
 use bounded_vec_deque::BoundedVecDeque;
 use std::fmt::Write;
@@ -274,93 +266,46 @@ impl Sensor for Memory {
     }
 
     fn settings_ui(&'_ self) -> Element<'_, crate::app::Message> {
-        let theme = cosmic::theme::active();
-        let cosmic = theme.cosmic();
-
-        let mem = self.to_string(false);
-
-        let mut text = column!(
-            cosmic::widget::text::body(mem)
-                .width(90)
-                .align_x(Alignment::Center)
-        );
-
-        if self.config.show_allocated {
-            let allocated = format!("{:.1} GB", self.latest_sample_allocated());
-            text = text.push(
-                cosmic::widget::text::body(allocated)
-                    .width(90)
-                    .align_x(Alignment::Center),
-            );
-        }
-
-        let mut mem_elements = Vec::new();
-        mem_elements.push(Element::from(
-            column!(
-                Container::new(self.chart(60, 60).width(60).height(60))
-                    .width(90)
-                    .align_x(Alignment::Center),
-                text
-            )
-            .padding(5)
-            .align_x(Alignment::Center),
-        ));
-
         let config = &self.config;
-        let selected: Option<usize> = Some(self.graph_kind().into());
-        let mem_kind = self.graph_kind();
+        let kind = self.graph_kind();
 
-        let expl = widget::text::caption(fl!("allocated-explanation"));
-
-        mem_elements.push(Element::from(
-            column!(
-                settings::item(
-                    fl!("enable-chart"),
-                    toggler(config.chart_visible())
-                        .on_toggle(|value| { Message::ToggleMemoryChart(value) }),
-                ),
-                settings::item(
-                    fl!("memory-show-allocated"),
-                    toggler(config.show_allocated).on_toggle(Message::ToggleMemoryAllocated)
-                ),
-                row!(widget::Space::new().width(15), expl),
-                settings::item(
-                    fl!("enable-value"),
-                    toggler(config.value_visible())
-                        .on_toggle(|value| { Message::ToggleMemoryValue(value) }),
-                ),
-                settings::item(
-                    fl!("enable-label"),
-                    toggler(config.label_visible())
-                        .on_toggle(|value| { Message::ToggleMemoryLabel(value) }),
-                ),
-                settings::item(
-                    fl!("enable-icon"),
-                    toggler(config.icon_visible())
-                        .on_toggle(|value| { Message::ToggleMemoryIcon(value) }),
-                ),
-                settings::item(
-                    fl!("memory-as-percentage"),
-                    toggler(config.percentage).on_toggle(Message::ToggleMemoryPercentage),
-                ),
-                row!(
-                    widget::text::body(fl!("chart-type")),
-                    widget::dropdown(&self.graph_options, selected, move |m| {
-                        Message::SelectGraphType(DeviceKind::Memory, m.into())
-                    },)
-                    .width(70),
-                    widget::space::horizontal(),
-                    widget::button::standard(fl!("change-colors"))
-                        .on_press(Message::ColorPickerOpen(DeviceKind::Memory, mem_kind, None)),
-                )
-                .align_y(Center)
+        settings::section()
+            .add(
+                settings::item::builder(fl!("enable-chart"))
+                    .toggler(config.chart_visible(), Message::ToggleMemoryChart),
             )
-            .spacing(cosmic.space_xs()),
-        ));
-
-        Row::with_children(mem_elements)
-            .align_y(Alignment::Center)
-            .spacing(0)
+            .add(
+                settings::item::builder(fl!("memory-show-allocated"))
+                    .description(fl!("allocated-explanation"))
+                    .control(
+                        toggler(config.show_allocated).on_toggle(Message::ToggleMemoryAllocated),
+                    ),
+            )
+            .add(
+                settings::item::builder(fl!("enable-value"))
+                    .toggler(config.value_visible(), Message::ToggleMemoryValue),
+            )
+            .add(
+                settings::item::builder(fl!("enable-label"))
+                    .toggler(config.label_visible(), Message::ToggleMemoryLabel),
+            )
+            .add(
+                settings::item::builder(fl!("enable-icon"))
+                    .toggler(config.icon_visible(), Message::ToggleMemoryIcon),
+            )
+            .add(
+                settings::item::builder(fl!("memory-as-percentage"))
+                    .toggler(config.percentage, Message::ToggleMemoryPercentage),
+            )
+            .add(ui::chart_type_row(
+                &self.graph_options,
+                Some(kind.into()),
+                |index| Message::SelectGraphType(DeviceKind::Memory, index.into()),
+            ))
+            .add(ui::chart_color_row(
+                config.colors().graph1,
+                Message::ColorPickerOpen(DeviceKind::Memory, kind, None),
+            ))
             .into()
     }
 }
