@@ -1668,7 +1668,7 @@ impl Minimon {
         if self.settings_tab() == Some(SettingsTab::CpuTemp) {
             return self.sensor_page(
                 *SETTINGS_CPU_CHOICE,
-                None,
+                self.cpu.name(),
                 vec![self.cputemp.to_string()],
                 Minimon::chart_preview(self.cputemp.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
                 vec![self.cputemp.settings_ui()],
@@ -1698,7 +1698,7 @@ impl Minimon {
 
         self.sensor_page(
             *SETTINGS_CPU_CHOICE,
-            None,
+            self.cpu.name(),
             vec![self.cpu.to_string()],
             preview,
             vec![self.cpu.settings_ui()],

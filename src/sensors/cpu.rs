@@ -98,6 +98,7 @@ pub struct Cpu {
     /// colors cached so we don't need to convert to string every time
     svg_colors: SvgColors,
     config: CpuConfig,
+    name: Option<String>,
 }
 
 impl DemoGraph for Cpu {
@@ -386,6 +387,19 @@ impl Cpu {
             .map(|&k| (k, CpuLoad::default()))
             .collect();
 
+        let mut name = None;
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_cpu_all();
+
+        if let Some(cpu) = sys.cpus().first() {
+            name = Some(
+                cpu.brand()
+                    .to_owned()
+                    .replace("(R)", "")
+                    .replace("(TM)", ""),
+            );
+        }
+
         let mut cpu = Cpu {
             total_cpu_load: CpuLoad {
                 user_pct: 0.,
@@ -411,6 +425,7 @@ impl Cpu {
             graph_options: graph_opts.to_vec(),
             svg_colors: SvgColors::new(&ChartColors::default()),
             config: CpuConfig::default(),
+            name,
         };
         cpu.set_colors(&ChartColors::default());
         cpu
@@ -537,6 +552,10 @@ impl Cpu {
                 system_pct: total_system_pct / core_count_f64,
             };
         }
+    }
+
+    pub fn name(&self) -> Option<String> {
+        self.name.clone()
     }
 }
 
