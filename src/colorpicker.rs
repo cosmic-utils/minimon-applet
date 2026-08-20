@@ -342,7 +342,7 @@ impl ColorPicker {
 
     pub fn view_colorpicker(&'_ self) -> Element<'_, crate::app::Message> {
         let color = self.sliders();
-        let title = format!("{} {}", self.device, fl!("colorpicker-colors"));
+        let title = fl!("colorpicker-colors", device = self.device.to_string());
 
         if let Some(dmo) = self.demo_chart.as_ref() {
             let mut children1 = Vec::new();
