@@ -1563,7 +1563,7 @@ impl Minimon {
         let panel_spacing = self.config.panel_spacing.clamp(1, 6);
 
         let general = settings::section()
-            .add(settings::item(
+            .add(ui::control_row(
                 fl!("refresh-rate"),
                 spin_button(
                     format!("{refresh_rate:.2}"),
@@ -1574,7 +1574,7 @@ impl Minimon {
                     Message::RefreshRateChanged,
                 ),
             ))
-            .add(settings::item(
+            .add(ui::control_row(
                 fl!("change-value-size"),
                 spin_button(
                     self.config.value_size_default.to_string(),
@@ -1589,7 +1589,7 @@ impl Minimon {
                 settings::item::builder(fl!("settings-monospace_font"))
                     .toggler(self.config.monospace_values, Message::ToggleMonospaceValues),
             )
-            .add(settings::item(
+            .add(ui::control_row(
                 fl!("settings-panel-spacing"),
                 spin_button(
                     panel_spacing.to_string(),
@@ -1600,7 +1600,7 @@ impl Minimon {
                     Message::PanelSpacing,
                 ),
             ))
-            .add(settings::item(
+            .add(ui::control_row(
                 fl!("choose-sysmon"),
                 widget::dropdown(&*SYSMON_NAMES, sysmon_index, Message::SysmonSelect).width(180),
             ));

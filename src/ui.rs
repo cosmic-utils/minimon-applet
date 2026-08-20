@@ -44,6 +44,26 @@ pub fn back_button<'a>(parent: &'a str, on_press: Message) -> Element<'a, Messag
         .into()
 }
 
+/// A settings row pairing a label with the control it operates.
+///
+/// [`settings::item`] lays the label out first and leaves the control whatever
+/// room is left, so a translation longer than the English one has its control
+/// cut off at the edge of the popup. Here the control is measured first and the
+/// label wraps into the space that remains.
+pub fn control_row<'a>(
+    label: impl Into<Cow<'a, str>> + 'a,
+    control: impl Into<Element<'a, Message>> + 'a,
+) -> Element<'a, Message> {
+    settings::item_row(vec![
+        text::body(label)
+            .wrapping(Wrapping::Word)
+            .width(Length::Fill)
+            .into(),
+        control.into(),
+    ])
+    .into()
+}
+
 /// Title row of a sensor page: the sensor name, its current reading(s) and a
 /// preview of the chart as it is drawn on the panel.
 pub fn sensor_header<'a>(
@@ -76,20 +96,26 @@ pub fn go_next_row<'a>(
 }
 
 /// A [`go_next_row`] that also shows the sensor's current reading.
+///
+/// The reading is the one part of the row that may take the room the other two
+/// leave over: the chevron has a fixed size and the title is what the row is
+/// looked up by, while a reading is several short groups that wrap onto a
+/// second line without becoming harder to read.
 pub fn go_next_value_row<'a>(
     description: impl Into<Cow<'a, str>> + 'a,
     value: impl Into<Cow<'a, str>> + 'a,
     on_press: Message,
 ) -> list::ListButton<'a, Message> {
-    action_row(
-        description,
-        widget::row::with_capacity(2)
-            .push(text::body(value))
-            .push(go_next_icon())
-            .align_y(Alignment::Center)
-            .spacing(cosmic::theme::spacing().space_s),
-        on_press,
-    )
+    list::button(settings::item_row(vec![
+        text::body(description).wrapping(Wrapping::Word).into(),
+        text::body(value)
+            .wrapping(Wrapping::Word)
+            .align_x(Alignment::End)
+            .width(Length::Fill)
+            .into(),
+        go_next_icon(),
+    ]))
+    .on_press(on_press)
 }
 
 /// The heart on the row linking to the developer's tip page.
@@ -110,12 +136,16 @@ fn go_next_icon<'a>() -> Element<'a, Message> {
 
 /// A list row acting as a button, with a trailing widget hinting at what
 /// activating it does.
+///
+/// The hint is an icon of a fixed size, so it is laid out first and the title
+/// wraps into the room that is left, rather than a long translation pushing the
+/// icon off the edge of the popup.
 pub fn action_row<'a>(
     description: impl Into<Cow<'a, str>> + 'a,
     trailing: impl Into<Element<'a, Message>> + 'a,
     on_press: Message,
 ) -> list::ListButton<'a, Message> {
-    list::button(settings::item(description, trailing)).on_press(on_press)
+    list::button(control_row(description, trailing)).on_press(on_press)
 }
 
 /// The `Chart type` row, letting the user pick how the sensor is drawn.
@@ -124,16 +154,15 @@ pub fn chart_type_row<'a>(
     selected: Option<usize>,
     on_select: impl Fn(usize) -> Message + Send + Sync + 'static,
 ) -> Element<'a, Message> {
-    settings::item(
+    control_row(
         fl!("chart-type"),
         widget::dropdown(options, selected, on_select).width(DROPDOWN_WIDTH),
     )
-    .into()
 }
 
 /// The `Chart color` row, opening the color picker for the sensor.
 pub fn chart_color_row<'a>(color: Srgba<u8>, on_press: Message) -> Element<'a, Message> {
-    settings::item(fl!("chart-color"), color_swatch(color, on_press)).into()
+    control_row(fl!("chart-color"), color_swatch(color, on_press))
 }
 
 /// The color a chart of `kind` is best represented by in a [`chart_color_row`].
@@ -172,11 +201,10 @@ pub fn temperature_unit_row<'a>(
     selected: Option<usize>,
     on_select: impl Fn(usize) -> Message + Send + Sync + 'static,
 ) -> Element<'a, Message> {
-    settings::item(
+    control_row(
         fl!("temperature-unit"),
         widget::dropdown(options, selected, on_select).width(DROPDOWN_WIDTH),
     )
-    .into()
 }
 
 /// A spin button for the temperature the chart starts scaling from.
@@ -189,7 +217,7 @@ pub fn min_temperature_row<'a>(
     // showing `42.5` as `42` and `43.5` as `44` reads as a button that is stuck.
     let min_temp = min_temp.round();
 
-    settings::item(
+    control_row(
         fl!("min-temperature"),
         widget::spin_button(
             format!("{min_temp:.0}"),
@@ -200,5 +228,4 @@ pub fn min_temperature_row<'a>(
             on_change,
         ),
     )
-    .into()
 }

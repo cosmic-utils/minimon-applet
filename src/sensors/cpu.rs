@@ -304,7 +304,7 @@ impl Sensor for Cpu {
 
         if kind == ChartKind::StackedBars {
             section = section
-                .add(settings::item(
+                .add(crate::ui::control_row(
                     fl!("graph-bar-width"),
                     widget::spin_button(
                         config.bar_width.to_string(),
