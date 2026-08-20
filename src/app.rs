@@ -1445,7 +1445,7 @@ impl Minimon {
         let mut content = Column::new();
 
         if let Some(sysmon) = sysmon {
-            let label = format!("{} {}", fl!("settings-launch"), sysmon.name);
+            let label = fl!("settings-launch", name = sysmon.name.as_str());
             content = content.push(settings::section().add(ui::action_row(
                 label,
                 widget::button::link::icon().icon(),
