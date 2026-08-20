@@ -274,7 +274,7 @@ impl Sensor for Network {
             );
 
         if !config.adaptive {
-            section = section.add(settings::item(
+            section = section.add(crate::ui::control_row(
                 fl!("net-bandwidth"),
                 widget::row::with_capacity(2)
                     .push(

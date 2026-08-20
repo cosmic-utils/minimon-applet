@@ -468,23 +468,29 @@ impl ColorPicker {
                     ),
                 ))
                 .add(fields)
+                // A flex row rather than a row: a translation whose four
+                // labels are wider than the dialog wraps onto a second line
+                // instead of having the last button cut off at the edge.
                 .add(
-                    row!(
-                        widget::button::standard(fl!("colorpicker-defaults"))
-                            .on_press(Message::ColorPickerDefaults),
-                        widget::button::standard(fl!("colorpicker-accent"))
-                            .on_press(Message::ColorPickerAccent),
+                    widget::flex_row(vec![
                         row!(
-                            widget::space::horizontal(),
+                            widget::button::standard(fl!("colorpicker-defaults"))
+                                .on_press(Message::ColorPickerDefaults),
+                            widget::button::standard(fl!("colorpicker-accent"))
+                                .on_press(Message::ColorPickerAccent)
+                        )
+                        .spacing(5)
+                        .into(),
+                        row!(
                             widget::button::destructive(fl!("colorpicker-cancel"))
                                 .on_press(Message::ColorPickerClose(false, dmo.id())),
                             widget::button::suggested(fl!("colorpicker-save"))
                                 .on_press(Message::ColorPickerClose(true, dmo.id()))
                         )
-                        .width(Length::Fill)
                         .spacing(5)
-                        .align_y(Alignment::End)
-                    )
+                        .into(),
+                    ])
+                    .justify_content(widget::JustifyContent::SpaceBetween)
                     .padding(5)
                     .spacing(5)
                     .width(Length::Fill),
