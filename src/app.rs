@@ -1304,7 +1304,7 @@ impl Minimon {
             .icon(widget::icon::from_name(ICON).handle())
             .version(env!("CARGO_PKG_VERSION"))
             .author("Hyperchaotic")
-            .developers([("Hyperchaotic", "hyperchaotic@gmail.com")])
+            //.developers([("Hyperchaotic", "hyperchaotic@gmail.com")])
             .links([
                 (*ABOUT_LINKS_MAIN, REPOSITORY_URL),
                 (*ABOUT_LINKS_ISSUES, TIP_URL),
