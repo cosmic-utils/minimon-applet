@@ -99,3 +99,5 @@ tab-upload = Upload
 tab-write = Write
 tab-read = Read
 app-description = HW monitor for the COSMIC desktop
+memory-show-swap = Show swap bar next to chart
+swap-explanation = Adds a narrow bar showing how much swap space is in use. Hidden when the system has no swap.

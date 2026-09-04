@@ -275,6 +275,7 @@ pub enum Message {
     ToggleMemoryIcon(bool),
     ToggleMemoryPercentage(bool),
     ToggleMemoryAllocated(bool),
+    ToggleMemorySwap(bool),
     ConfigChanged(Box<MinimonConfig>),
     ThemeChanged(Box<cosmic::config::CosmicTk>),
     LaunchSystemMonitor(&'static system_monitors::DesktopApp),
@@ -1022,6 +1023,12 @@ impl cosmic::Application for Minimon {
                 self.save_config();
             }
 
+            Message::ToggleMemorySwap(toggled) => {
+                info!("Message::ToggleMemorySwap({toggled:?})");
+                self.config.memory.show_swap = toggled;
+                self.save_config();
+            }
+
             Message::ToggleNetValue(variant, toggled) => {
                 info!("Message::ToggleNetValue({toggled:?})");
                 let (_, config) = network_select!(self, variant);
@@ -1710,6 +1717,9 @@ impl Minimon {
         if self.config.memory.show_allocated {
             values.push(format!("{:.1} GB", self.memory.latest_sample_allocated()));
         }
+        if self.config.memory.show_swap && self.memory.has_swap() {
+            values.push(self.memory.swap_to_string());
+        }
 
         self.sensor_page(
             *SETTINGS_MEMORY_CHOICE,
@@ -2006,8 +2016,9 @@ impl Minimon {
 
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
-        let memory_has_content =
-            self.config.memory.value_visible() || self.config.memory.chart_visible();
+        let memory_has_content = self.config.memory.value_visible()
+            || self.config.memory.chart_visible()
+            || (self.config.memory.show_swap && self.memory.has_swap());
 
         if self.config.memory.icon_visible() && memory_has_content {
             self.push_symbolic_icon(&mut elements, RAM_ICON, false);
@@ -2029,6 +2040,23 @@ impl Minimon {
                     .chart(size.0, size.1)
                     .height(size.0)
                     .width(size.1)
+                    .into(),
+            );
+        }
+
+        // Swap bar sits next to the memory chart at half its size along the
+        // panel's flow direction.
+        if self.config.memory.show_swap && self.memory.has_swap() {
+            let (height, width) = if horizontal {
+                (size.0, size.1 / 2)
+            } else {
+                (size.0 / 2, size.1)
+            };
+            elements.push_back(
+                self.memory
+                    .swap_chart(!horizontal)
+                    .height(height)
+                    .width(width)
                     .into(),
             );
         }

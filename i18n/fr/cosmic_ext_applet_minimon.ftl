@@ -99,3 +99,5 @@ tab-read = Lecture
 links-main = Dépôt
 links-issues = Soutenir
 app-description = Moniteur matériel pour le bureau COSMIC
+memory-show-swap = Show swap bar next to chart
+swap-explanation = Adds a narrow bar showing how much swap space is in use. Hidden when the system has no swap.

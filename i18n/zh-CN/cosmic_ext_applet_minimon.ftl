@@ -99,3 +99,5 @@ tab-read = 读取
 links-main = 代码仓库
 links-issues = 赞助
 app-description = COSMIC桌面的硬件监视器
+memory-show-swap = Show swap bar next to chart
+swap-explanation = Adds a narrow bar showing how much swap space is in use. Hidden when the system has no swap.
