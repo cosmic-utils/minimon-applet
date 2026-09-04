@@ -48,6 +48,8 @@ pub struct Memory {
     samples_used: BoundedVecDeque<f64>,
     samples_allocated: BoundedVecDeque<f64>,
     total_memory: f64,
+    total_swap: f64,
+    swap_used: f64,
     system: System,
     graph_options: Vec<&'static str>,
     /// colors cached so we don't need to convert to string every time
@@ -151,7 +153,7 @@ impl Sensor for Memory {
     }
 
     fn update(&mut self) {
-        let r = MemoryRefreshKind::nothing().with_ram();
+        let r = MemoryRefreshKind::nothing().with_ram().with_swap();
 
         self.system.refresh_memory_specifics(r);
         let new_val_used: f64 = self.system.used_memory() as f64 / 1_073_741_824.0;
@@ -159,6 +161,9 @@ impl Sensor for Memory {
             self.total_memory - (self.system.free_memory() as f64 / 1_073_741_824.0);
         self.samples_used.push_back(new_val_used);
         self.samples_allocated.push_back(new_val_allocated);
+
+        self.total_swap = self.system.total_swap() as f64 / 1_073_741_824.0;
+        self.swap_used = self.system.used_swap() as f64 / 1_073_741_824.0;
     }
 
     fn demo_graph(&self) -> Box<dyn DemoGraph> {
@@ -282,6 +287,11 @@ impl Sensor for Memory {
                     ),
             )
             .add(
+                settings::item::builder(fl!("memory-show-swap"))
+                    .description(fl!("swap-explanation"))
+                    .control(toggler(config.show_swap).on_toggle(Message::ToggleMemorySwap)),
+            )
+            .add(
                 settings::item::builder(fl!("enable-value"))
                     .toggler(config.value_visible(), Message::ToggleMemoryValue),
             )
@@ -339,6 +349,8 @@ impl Default for Memory {
                 MAX_SAMPLES,
             ),
             total_memory,
+            total_swap: system.total_swap() as f64 / 1_073_741_824.0,
+            swap_used: system.used_swap() as f64 / 1_073_741_824.0,
             system,
             config: MemoryConfig::default(),
             graph_options: super::GRAPH_OPTIONS_RING_LINE.to_vec(),
@@ -360,6 +372,33 @@ impl Memory {
 
     pub fn total(&self) -> f64 {
         self.total_memory
+    }
+
+    /// True when the system has swap space configured. Without any swap there is
+    /// nothing to show, so the bar is left out of the panel entirely.
+    pub fn has_swap(&self) -> bool {
+        self.total_swap > 0.0
+    }
+
+    pub fn swap_percentage(&self) -> u8 {
+        if self.total_swap <= 0.0 {
+            return 0;
+        }
+        ((self.swap_used / self.total_swap) * 100.0).clamp(0.0, 100.0) as u8
+    }
+
+    /// A narrow fill bar showing swap usage, sized to half a regular chart. It
+    /// carries no text, the memory chart next to it already shows the numbers.
+    pub fn swap_chart(
+        &'_ self,
+        vertical_panel: bool,
+    ) -> cosmic::widget::Container<'_, crate::app::Message, cosmic::Theme, cosmic::Renderer> {
+        let svg = crate::svg_graph::bar(self.swap_percentage(), &self.svg_colors, vertical_panel);
+        super::svg_icon_container::<Message>(svg)
+    }
+
+    pub fn swap_to_string(&self) -> String {
+        format!("{:.1} / {:.1} GB", self.swap_used, self.total_swap)
     }
 
     pub fn to_string(&self, vertical_panel: bool) -> String {

@@ -99,3 +99,5 @@ tab-read = Olvasás
 links-main = Forráskód
 links-issues = Támogatás
 app-description = Hardverfigyelő a COSMIC asztali környezethez
+memory-show-swap = Show swap bar next to chart
+swap-explanation = Adds a narrow bar showing how much swap space is in use. Hidden when the system has no swap.

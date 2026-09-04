@@ -73,6 +73,39 @@ fn clip_path_for_ram_fill(percentage: u8) -> String {
     clip_rect_svg(percentage, 17.0, 17.0, 12.9155)
 }
 
+/// A bar that fills from the bottom up, with no text. It is half the size of a
+/// regular chart along the panel's flow direction, so `vertical_panel` decides
+/// whether the tall or the wide aspect ratio is used.
+pub fn bar(percentage: u8, colors: &SvgColors, vertical_panel: bool) -> String {
+    let (w, h) = if vertical_panel {
+        (42.0f64, 21.0f64)
+    } else {
+        (21.0f64, 42.0f64)
+    };
+    let rx = 5.0f64;
+
+    let fill_height = (f64::from(percentage.min(100)) / 100.0) * h;
+    let fill_y = h - fill_height;
+
+    format!(
+        r#"<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="bar-clip">
+      <rect x="0" y="0" width="{w}" height="{h}" rx="{rx}" ry="{rx}"/>
+    </clipPath>
+  </defs>
+  <rect x="0" y="0" width="{w}" height="{h}" rx="{rx}" ry="{rx}" fill="{bg}"/>
+  <rect x="0" y="{fill_y:.4}" width="{w}" height="{fill_height:.4}" fill="{fill}" clip-path="url(#bar-clip)"/>
+  <rect x="0.5" y="0.5" width="{fw}" height="{fh}" rx="{rx}" ry="{rx}" fill="none" stroke="{frame}" stroke-width="1"/>
+</svg>"#,
+        bg = colors.background,
+        fill = colors.graph1,
+        frame = colors.frame,
+        fw = w - 1.0,
+        fh = h - 1.0,
+    )
+}
+
 pub fn ring(value1: &str, percentage1: u8, percentage2: Option<u8>, color: &SvgColors) -> String {
     let mut svg = String::with_capacity(RINGSVG_LEN);
     svg.push_str(RINGSVG_1);

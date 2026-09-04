@@ -99,3 +99,5 @@ tab-read = القراءة
 links-main = المستودع
 links-issues = الدعم
 app-description = مرقاب العتاد لسطح مكتب COSMIC
+memory-show-swap = Show swap bar next to chart
+swap-explanation = Adds a narrow bar showing how much swap space is in use. Hidden when the system has no swap.

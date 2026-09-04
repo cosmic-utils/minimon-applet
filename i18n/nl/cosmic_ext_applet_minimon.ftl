@@ -99,3 +99,5 @@ tab-read = Lezen
 links-main = Repository
 links-issues = Steunen
 app-description = Hardwaremonitor voor de COSMIC-werkomgeving
+memory-show-swap = Show swap bar next to chart
+swap-explanation = Adds a narrow bar showing how much swap space is in use. Hidden when the system has no swap.
