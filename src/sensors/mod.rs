@@ -108,6 +108,7 @@ pub mod gpu;
 pub mod gpus;
 pub mod memory;
 pub mod network;
+pub mod systemload;
 
 impl From<usize> for TempUnit {
     fn from(index: usize) -> Self {
