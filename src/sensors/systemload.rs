@@ -142,11 +142,11 @@ impl Sensor for SystemLoad {
     fn settings_ui(&self) -> Element<'_, Message> {
         let mut section = settings::section();
         for ((value, color), (label, _)) in self.readings().into_iter().zip(COLOR_CHOICES.iter()) {
-            section = section.add(crate::ui::control_row(
-                *label,
-                cosmic::widget::text::body(format!("{value:.2}"))
-                    .class(cosmic::theme::Text::Color(color)),
-            ));
+            let mut text = cosmic::widget::text::body(format!("{value:.2}"));
+            if self.config.use_graph_colors {
+                text = text.class(cosmic::theme::Text::Color(color));
+            }
+            section = section.add(crate::ui::control_row(*label, text));
         }
         section
             .add(crate::ui::control_row(
@@ -161,6 +161,14 @@ impl Sensor for SystemLoad {
             .add(
                 settings::item::builder(fl!("enable-value"))
                     .toggler(self.config.value_visible(), Message::ToggleSystemLoadValue),
+            )
+            .add(
+                settings::item::builder(fl!("use-graph-colors"))
+                    .description(fl!("use-graph-colors-description"))
+                    .toggler(
+                        self.config.use_graph_colors,
+                        Message::ToggleSystemLoadGraphColors,
+                    ),
             )
             .add(
                 settings::item::builder(fl!("enable-label"))

@@ -277,6 +277,7 @@ pub enum Message {
     CpuNarrowBarSpacing(bool),
     ToggleSystemLoadChart(bool),
     ToggleSystemLoadValue(bool),
+    ToggleSystemLoadGraphColors(bool),
     ToggleSystemLoadLabel(bool),
     ToggleSystemLoadIcon(bool),
     ToggleMemoryChart(bool),
@@ -968,6 +969,10 @@ impl cosmic::Application for Minimon {
             }
             Message::ToggleSystemLoadValue(toggled) => {
                 self.config.systemload.show_value(toggled);
+                self.save_config();
+            }
+            Message::ToggleSystemLoadGraphColors(toggled) => {
+                self.config.systemload.use_graph_colors = toggled;
                 self.save_config();
             }
             Message::ToggleSystemLoadLabel(toggled) => {
@@ -2080,11 +2085,11 @@ impl Minimon {
                 if horizontal && index > 0 {
                     values.push(self.figure_value(" | ".to_owned(), None).into());
                 }
-                values.push(
-                    self.figure_value(format!("{value:.2}"), None)
-                        .class(cosmic::theme::Text::Color(color))
-                        .into(),
-                );
+                let mut text = self.figure_value(format!("{value:.2}"), None);
+                if self.config.systemload.use_graph_colors {
+                    text = text.class(cosmic::theme::Text::Color(color));
+                }
+                values.push(text.into());
             }
             elements.push_back(if horizontal {
                 Row::from_vec(values).into()

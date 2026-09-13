@@ -366,7 +366,9 @@ impl Default for CpuTempConfig {
     }
 }
 
-make_config!(SystemLoadConfig {});
+make_config!(SystemLoadConfig {
+    pub use_graph_colors: bool,
+});
 
 impl Default for SystemLoadConfig {
     fn default() -> Self {
@@ -377,6 +379,7 @@ impl Default for SystemLoadConfig {
             icon_visible: false,
             chart: ChartKind::Line,
             colors: Colors::new(DeviceKind::SystemLoad),
+            use_graph_colors: false,
         }
     }
 }

@@ -108,3 +108,5 @@ system-load-five = 5 minutes
 system-load-fifteen = 15 minutes
 chart-colors = Chart colors
 system-load-capacity = CPU capacity
+use-graph-colors = Use graph colors for values
+use-graph-colors-description = Match numeric values to their graph colors instead of the default text color.
