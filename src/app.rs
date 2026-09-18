@@ -215,6 +215,7 @@ pub struct Minimon {
     value_network_width: Option<f32>,
     value_disks_width: Option<f32>,
     value_w_width: Option<f32>,
+    value_systemload_width: Option<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -372,6 +373,7 @@ impl cosmic::Application for Minimon {
             value_network_width: None,
             value_disks_width: None,
             value_w_width: None,
+            value_systemload_width: None,
         };
 
         let config: MinimonConfig =
@@ -2110,7 +2112,16 @@ impl Minimon {
                 if horizontal && index > 0 {
                     values.push(self.figure_value(" | ".to_owned(), None).into());
                 }
-                let mut text = self.figure_value(format!("{value:.2}"), None);
+
+                let mut text = if value < 10.0 {
+                    self.figure_value(format!("{value:.2}"), self.value_systemload_width)
+                } else {
+                    self.figure_value(
+                        format!("{:.1}", (value * 10.0).trunc() / 10.0),
+                        self.value_systemload_width,
+                    )
+                };
+
                 if self.config.systemload.use_graph_colors {
                     text = text.class(cosmic::theme::Text::Color(color));
                 }
@@ -2793,6 +2804,7 @@ impl Minimon {
             };
 
             self.value_w_width = self.measure_text_width("W ", &attrs);
+            self.value_systemload_width = self.measure_text_width("8.88", &attrs);
         }
     }
 
