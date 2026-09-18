@@ -86,37 +86,19 @@ pub fn sensor_header<'a>(
         .into()
 }
 
-/// Header for multi-reading sensors: text wraps beside a reserved chart preview.
-pub fn stacked_sensor_header<'a>(
+/// A compact multi-reading header with values beside a reserved chart preview.
+pub fn readings_sensor_header<'a>(
     title: impl Into<Cow<'a, str>> + 'a,
-    values: impl IntoIterator<Item = String>,
+    values: impl IntoIterator<Item = Element<'a, Message>>,
     preview: Element<'a, Message>,
 ) -> Element<'a, Message> {
-    let values = values
-        .into_iter()
-        .map(|value| {
-            text::body(value)
-                .wrapping(Wrapping::WordOrGlyph)
-                .width(Length::Fill)
-                .into()
-        })
-        .collect::<Vec<_>>();
-
-    // Fill allocates the text only the space left after measuring the preview.
-    // Keep the title above the readings so changing digit counts cannot squeeze
-    // the chart out of a narrow popup.
-    let details = widget::column::with_capacity(2)
+    widget::row::with_capacity(3)
         .push(
             text::title3(title)
                 .wrapping(Wrapping::WordOrGlyph)
                 .width(Length::Fill),
         )
-        .push(widget::column::with_children(values).width(Length::Fill))
-        .width(Length::Fill)
-        .spacing(cosmic::theme::spacing().space_xxs);
-
-    widget::row::with_capacity(2)
-        .push(details)
+        .push(widget::column::with_children(values).align_x(Alignment::End))
         .push(preview)
         .align_y(Alignment::Center)
         .spacing(cosmic::theme::spacing().space_s)
@@ -286,9 +268,11 @@ mod tests {
                 "12345.67 | 12345.67 | 12345.67",
             ] {
                 for preview_width in [PREVIEW_SIZE, PREVIEW_MAX_WIDTH] {
-                    let mut header = stacked_sensor_header(
+                    let mut header = readings_sensor_header(
                         "System Load",
-                        [value.to_owned()],
+                        value
+                            .split(" | ")
+                            .map(|value| text::body(value.to_owned()).into()),
                         widget::container(widget::space::horizontal())
                             .width(preview_width)
                             .height(PREVIEW_SIZE)
@@ -310,8 +294,11 @@ mod tests {
                         preview.x + preview.width <= width,
                         "preview overflows popup: {preview:?}, {value} at {width}px"
                     );
-                    let details = layout.children().first().unwrap().bounds();
-                    assert!(details.x + details.width <= preview.x);
+                    let title = layout.children()[0].bounds();
+                    let readings = layout.children()[1].bounds();
+                    assert!(title.x + title.width <= readings.x);
+                    assert!(readings.x + readings.width <= preview.x);
+                    assert_eq!(layout.children()[1].children().len(), 3);
                 }
             }
         }

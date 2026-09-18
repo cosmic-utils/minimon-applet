@@ -1755,12 +1755,37 @@ impl Minimon {
     }
 
     fn systemload_settings_page(&self) -> SettingsColumn<'_> {
+        let values = self
+            .systemload
+            .readings()
+            .into_iter()
+            .map(|(value, color)| {
+                let mut text = cosmic::widget::text::body(format!("{value:.2}"));
+                if self.config.systemload.use_graph_colors {
+                    text = text.class(cosmic::theme::Text::Color(color));
+                }
+                text.into()
+            });
         Column::new()
-            .push(ui::stacked_sensor_header(
-                *SETTINGS_SYSTEM_LOAD_CHOICE,
-                [self.systemload.value(false)],
-                Minimon::chart_preview(self.systemload.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
-            ))
+            .push(
+                Column::new()
+                    .push(ui::readings_sensor_header(
+                        *SETTINGS_SYSTEM_LOAD_CHOICE,
+                        values,
+                        Minimon::chart_preview(
+                            self.systemload.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE),
+                        ),
+                    ))
+                    .push(cosmic::widget::text::caption(fl!(
+                        "system-load-description"
+                    )))
+                    .push(cosmic::widget::text::caption(format!(
+                        "{} {}",
+                        fl!("system-load-capacity"),
+                        self.systemload.capacity(),
+                    )))
+                    .spacing(cosmic::theme::spacing().space_xxs),
+            )
             .push(self.systemload.settings_ui())
     }
 

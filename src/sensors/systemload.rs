@@ -80,6 +80,10 @@ impl SystemLoad {
         .map(|(value, color)| (value, cosmic::iced::Color::from(color)))
     }
 
+    pub fn capacity(&self) -> usize {
+        self.logical_cpus
+    }
+
     fn record(&mut self, average: LoadAvg) {
         self.average = average;
         for (samples, value) in
@@ -140,22 +144,10 @@ impl Sensor for SystemLoad {
     }
 
     fn settings_ui(&self) -> Element<'_, Message> {
-        let mut section = settings::section();
-        for ((value, color), (label, _)) in self.readings().into_iter().zip(COLOR_CHOICES.iter()) {
-            let mut text = cosmic::widget::text::body(format!("{value:.2}"));
-            if self.config.use_graph_colors {
-                text = text.class(cosmic::theme::Text::Color(color));
-            }
-            section = section.add(crate::ui::control_row(*label, text));
-        }
-        section
-            .add(crate::ui::control_row(
-                fl!("system-load-capacity"),
-                cosmic::widget::text::body(format!("┄ {}", self.logical_cpus)),
-            ))
+        settings::section()
             .add(
                 settings::item::builder(fl!("enable-chart"))
-                    .description(fl!("system-load-description"))
+                    .description(fl!("system-load-chart-description"))
                     .toggler(self.config.chart_visible(), Message::ToggleSystemLoadChart),
             )
             .add(
