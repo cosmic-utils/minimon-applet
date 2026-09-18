@@ -99,3 +99,15 @@ tab-upload = Upload
 tab-write = Write
 tab-read = Read
 app-description = HW monitor for the COSMIC desktop
+
+sensor-system-load = System Load
+label-system-load = LOAD
+system-load-description = Load average over 1, 5 and 15 minutes.
+system-load-chart-description = Three colored lines share an adaptive scale. The dashed line marks the logical CPU count; higher load can indicate CPU or I/O contention.
+system-load-one = 1 minute
+system-load-five = 5 minutes
+system-load-fifteen = 15 minutes
+chart-colors = Chart colors
+system-load-capacity = CPU capacity
+use-graph-colors = Use graph colors for values
+use-graph-colors-description = Match numeric values to their graph colors instead of the default text color.

@@ -45,6 +45,7 @@ use crate::sensors::gpu::GpuType;
 use crate::sensors::gpus::{Gpu, Gpus};
 use crate::sensors::memory::Memory;
 use crate::sensors::network::{self, Network};
+use crate::sensors::systemload::SystemLoad;
 use crate::sensors::{Sensor, TempUnit};
 use crate::system_monitors;
 use crate::ui;
@@ -57,6 +58,7 @@ const NVIDIA_REDETECT_ATTEMPTS: u8 = 5;
 static AUTOSIZE_MAIN_ID: LazyLock<WId> = std::sync::LazyLock::new(|| WId::new("autosize-main"));
 
 const ICON: &str = "io.github.cosmic_utils.minimon-applet";
+const SYSTEMLOAD_ICON: &str = "io.github.cosmic_utils.minimon-applet-systemload";
 const CPU_ICON: &str = "io.github.cosmic_utils.minimon-applet-cpu";
 const TEMP_ICON: &str = "io.github.cosmic_utils.minimon-applet-temperature";
 const RAM_ICON: &str = "io.github.cosmic_utils.minimon-applet-ram";
@@ -74,6 +76,8 @@ const LICENSE_URL: &str = "https://www.gnu.org/licenses/gpl-3.0.html";
 
 pub static SETTINGS_CPU_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-cpu").leak());
+pub static SETTINGS_SYSTEM_LOAD_CHOICE: LazyLock<&'static str> =
+    LazyLock::new(|| fl!("sensor-system-load").leak());
 pub static SETTINGS_MEMORY_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-memory").leak());
 pub static SETTINGS_NETWORK_CHOICE: LazyLock<&'static str> =
@@ -130,6 +134,7 @@ pub enum SettingsVariant {
     General,
     Cpu,
     Memory,
+    SystemLoad,
     Network,
     Disks,
     Gpu(String),
@@ -158,6 +163,7 @@ pub struct Minimon {
     cpu: Cpu,
     cputemp: CpuTemp,
     memory: Memory,
+    systemload: SystemLoad,
     network1: Network,
     network2: Network,
     disks1: Disks,
@@ -269,6 +275,11 @@ pub enum Message {
     ToggleCpuNoDecimals(bool),
     CpuBarSizeChanged(u16),
     CpuNarrowBarSpacing(bool),
+    ToggleSystemLoadChart(bool),
+    ToggleSystemLoadValue(bool),
+    ToggleSystemLoadGraphColors(bool),
+    ToggleSystemLoadLabel(bool),
+    ToggleSystemLoadIcon(bool),
     ToggleMemoryChart(bool),
     ToggleMemoryValue(bool),
     ToggleMemoryLabel(bool),
@@ -336,6 +347,7 @@ impl cosmic::Application for Minimon {
             cpu: Cpu::new(is_horizontal),
             cputemp: CpuTemp::default(),
             memory: Memory::default(),
+            systemload: SystemLoad::default(),
             network1: Network::default(),
             network2: Network::default(),
             disks1: Disks::default(),
@@ -467,6 +479,9 @@ impl cosmic::Application for Minimon {
                     ContentType::CpuTemp => {
                         elements.extend(self.cpu_temp_panel_ui(horizontal));
                     }
+                    ContentType::SystemLoad => {
+                        elements.extend(self.systemload_panel_ui(horizontal));
+                    }
                     ContentType::MemoryUsage => {
                         elements.extend(self.memory_panel_ui(horizontal));
                     }
@@ -570,6 +585,7 @@ impl cosmic::Application for Minimon {
                 None => self.overview_page(get_sysmon(&self.config.sysmon)),
                 Some(SettingsVariant::General) => self.general_settings_page(),
                 Some(SettingsVariant::Cpu) => self.cpu_settings_page(),
+                Some(SettingsVariant::SystemLoad) => self.systemload_settings_page(),
                 Some(SettingsVariant::Memory) => self.memory_settings_page(),
                 Some(SettingsVariant::Network) => self.network_settings_page(),
                 Some(SettingsVariant::Disks) => self.disks_settings_page(),
@@ -683,6 +699,10 @@ impl cosmic::Application for Minimon {
                     }
                     DeviceKind::CpuTemp => {
                         self.colorpicker.activate(device, self.cputemp.demo_graph());
+                    }
+                    DeviceKind::SystemLoad => {
+                        self.colorpicker
+                            .activate(device, self.systemload.demo_graph());
                     }
                     DeviceKind::Memory => {
                         self.colorpicker.activate(device, self.memory.demo_graph());
@@ -943,6 +963,26 @@ impl cosmic::Application for Minimon {
                 self.save_config();
             }
 
+            Message::ToggleSystemLoadChart(toggled) => {
+                self.config.systemload.show_chart(toggled);
+                self.save_config();
+            }
+            Message::ToggleSystemLoadValue(toggled) => {
+                self.config.systemload.show_value(toggled);
+                self.save_config();
+            }
+            Message::ToggleSystemLoadGraphColors(toggled) => {
+                self.config.systemload.use_graph_colors = toggled;
+                self.save_config();
+            }
+            Message::ToggleSystemLoadLabel(toggled) => {
+                self.config.systemload.show_label(toggled);
+                self.save_config();
+            }
+            Message::ToggleSystemLoadIcon(toggled) => {
+                self.config.systemload.show_icon(toggled);
+                self.save_config();
+            }
             Message::ToggleMemoryChart(toggled) => {
                 info!("Message::ToggleMemoryChart({toggled:?})");
                 self.config.memory.show_chart(toggled);
@@ -1257,11 +1297,13 @@ impl Minimon {
     fn config_changed(&mut self, config: &MinimonConfig) {
         info!("Updating state with configuration data");
         self.config = config.clone();
+        self.config.content_order.include_missing();
         let rr = self.config.refresh_rate;
         self.refresh_rate.store(rr, atomic::Ordering::Relaxed);
         self.cpu.update_config(&config.cpu, rr);
         self.cputemp.update_config(&config.cputemp, rr);
         self.memory.update_config(&config.memory, rr);
+        self.systemload.update_config(&config.systemload, rr);
         self.network1.update_config(&config.network1, rr);
         self.network2.update_config(&config.network2, rr);
         self.disks1.update_config(&config.disks1, rr);
@@ -1283,6 +1325,7 @@ impl Minimon {
 
             if self.config.cpu.visible()
                 || self.config.cputemp.visible()
+                || self.config.systemload.visible()
                 || self.config.memory.visible()
                 || self.config.network1.visible()
                 || (self.config.network1.variant != NetworkVariant::Combined
@@ -1503,6 +1546,11 @@ impl Minimon {
                 Message::Settings(Some(SettingsVariant::Cpu)),
             ))
             .add(ui::go_next_value_row(
+                *SETTINGS_SYSTEM_LOAD_CHOICE,
+                self.systemload.value(false),
+                Message::Settings(Some(SettingsVariant::SystemLoad)),
+            ))
+            .add(ui::go_next_value_row(
                 *SETTINGS_MEMORY_CHOICE,
                 memory,
                 Message::Settings(Some(SettingsVariant::Memory)),
@@ -1622,6 +1670,7 @@ impl Minimon {
                     ContentType::CpuTemp if self.cputemp.is_found() => {
                         fl!("settings-cpu-temperature")
                     }
+                    ContentType::SystemLoad => fl!("sensor-system-load"),
                     ContentType::MemoryUsage => fl!("settings-memory"),
                     ContentType::NetworkUsage => fl!("settings-network"),
                     ContentType::DiskUsage => fl!("settings-disks"),
@@ -1703,6 +1752,41 @@ impl Minimon {
             preview,
             vec![self.cpu.settings_ui()],
         )
+    }
+
+    fn systemload_settings_page(&self) -> SettingsColumn<'_> {
+        let values = self
+            .systemload
+            .readings()
+            .into_iter()
+            .map(|(value, color)| {
+                let mut text = cosmic::widget::text::body(format!("{value:.2}"));
+                if self.config.systemload.use_graph_colors {
+                    text = text.class(cosmic::theme::Text::Color(color));
+                }
+                text.into()
+            });
+        Column::new()
+            .push(
+                Column::new()
+                    .push(ui::readings_sensor_header(
+                        *SETTINGS_SYSTEM_LOAD_CHOICE,
+                        values,
+                        Minimon::chart_preview(
+                            self.systemload.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE),
+                        ),
+                    ))
+                    .push(cosmic::widget::text::caption(fl!(
+                        "system-load-description"
+                    )))
+                    .push(cosmic::widget::text::caption(format!(
+                        "{} {}",
+                        fl!("system-load-capacity"),
+                        self.systemload.capacity(),
+                    )))
+                    .spacing(cosmic::theme::spacing().space_xxs),
+            )
+            .push(self.systemload.settings_ui())
     }
 
     fn memory_settings_page(&self) -> SettingsColumn<'_> {
@@ -1996,6 +2080,58 @@ impl Minimon {
                         .into(),
                 );
             }
+        }
+
+        elements
+    }
+
+    fn systemload_panel_ui(
+        &'_ self,
+        horizontal: bool,
+    ) -> VecDeque<Element<'_, crate::app::Message>> {
+        let size = self.core.applet.suggested_size(false);
+
+        let mut elements: VecDeque<Element<Message>> = VecDeque::new();
+
+        let systemload_has_content =
+            self.config.systemload.value_visible() || self.config.systemload.chart_visible();
+
+        if self.config.systemload.icon_visible() && systemload_has_content {
+            self.push_symbolic_icon(&mut elements, SYSTEMLOAD_ICON, false);
+        }
+
+        if self.config.systemload.label_visible() && systemload_has_content {
+            self.push_text_label(&mut elements, &fl!("label-system-load"));
+        }
+
+        if self.config.systemload.value_visible() {
+            let mut values = Vec::new();
+            for (index, (value, color)) in self.systemload.readings().into_iter().enumerate() {
+                if horizontal && index > 0 {
+                    values.push(self.figure_value(" | ".to_owned(), None).into());
+                }
+                let mut text = self.figure_value(format!("{value:.2}"), None);
+                if self.config.systemload.use_graph_colors {
+                    text = text.class(cosmic::theme::Text::Color(color));
+                }
+                values.push(text.into());
+            }
+            elements.push_back(if horizontal {
+                Row::from_vec(values).into()
+            } else {
+                Column::from_vec(values).into()
+            });
+        }
+
+        // Chart section
+        if self.config.systemload.chart_visible() {
+            elements.push_back(
+                self.systemload
+                    .chart(size.0, size.1)
+                    .height(size.0)
+                    .width(size.1)
+                    .into(),
+            );
         }
 
         elements
@@ -2344,6 +2480,9 @@ impl Minimon {
             DeviceKind::CpuTemp => {
                 *self.config.cputemp.colors_mut() = *colors;
             }
+            DeviceKind::SystemLoad => {
+                *self.config.systemload.colors_mut() = *colors;
+            }
             DeviceKind::Memory => {
                 *self.config.memory.colors_mut() = *colors;
             }
@@ -2414,6 +2553,10 @@ impl Minimon {
 
         if all || self.config.cputemp.visible() {
             self.cputemp.update();
+        }
+
+        if all || self.config.systemload.visible() {
+            self.systemload.update();
         }
 
         if all || self.config.memory.visible() {

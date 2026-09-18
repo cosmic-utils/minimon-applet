@@ -56,6 +56,7 @@ impl From<ChartKind> for usize {
 pub enum DeviceKind {
     Cpu,
     CpuTemp,
+    SystemLoad,
     Memory,
     Network(NetworkVariant),
     Disks(DisksVariant),
@@ -69,6 +70,7 @@ impl std::fmt::Display for DeviceKind {
         match self {
             DeviceKind::Cpu => write!(f, "{}", fl!("sensor-cpu")),
             DeviceKind::CpuTemp => write!(f, "{}", fl!("sensor-cpu-temperature")),
+            DeviceKind::SystemLoad => write!(f, "{}", fl!("sensor-system-load")),
             DeviceKind::Memory => write!(f, "{}", fl!("sensor-memory")),
             DeviceKind::Network(_) => write!(f, "{}", fl!("sensor-network")),
             DeviceKind::Disks(_) => write!(f, "{}", fl!("sensor-disks")),
@@ -112,6 +114,12 @@ impl Default for ChartColors {
 impl ChartColors {
     pub fn new(device: DeviceKind, chart: ChartKind) -> Self {
         match device {
+            DeviceKind::SystemLoad => ChartColors {
+                graph1: rgba!(47, 141, 255, 255),
+                graph2: rgba!(0, 220, 120, 255),
+                graph3: rgba!(255, 165, 0, 255),
+                ..Default::default()
+            },
             DeviceKind::Cpu => match chart {
                 ChartKind::Ring => ChartColors {
                     graph1: rgba!(255, 6, 0, 255),
@@ -358,6 +366,24 @@ impl Default for CpuTempConfig {
     }
 }
 
+make_config!(SystemLoadConfig {
+    pub use_graph_colors: bool,
+});
+
+impl Default for SystemLoadConfig {
+    fn default() -> Self {
+        Self {
+            chart_visible: false,
+            value_visible: false,
+            label_visible: false,
+            icon_visible: false,
+            chart: ChartKind::Line,
+            colors: Colors::new(DeviceKind::SystemLoad),
+            use_graph_colors: false,
+        }
+    }
+}
+
 make_config!(MemoryConfig {
     pub percentage: bool,
     pub show_allocated: bool,
@@ -520,6 +546,7 @@ impl Default for GpuConfig {
 pub enum ContentType {
     CpuUsage,
     CpuTemp,
+    SystemLoad,
     MemoryUsage,
     NetworkUsage,
     DiskUsage,
@@ -538,11 +565,23 @@ impl Default for ContentOrder {
             order: vec![
                 ContentType::CpuUsage,
                 ContentType::CpuTemp,
+                ContentType::SystemLoad,
                 ContentType::MemoryUsage,
                 ContentType::NetworkUsage,
                 ContentType::DiskUsage,
                 ContentType::GpuInfo,
             ],
+        }
+    }
+}
+
+impl ContentOrder {
+    /// Make newly introduced sensors available without changing the user's order.
+    pub fn include_missing(&mut self) {
+        for content in Self::default().order {
+            if !self.order.contains(&content) {
+                self.order.push(content);
+            }
         }
     }
 }
@@ -557,6 +596,8 @@ pub struct MinimonConfig {
     pub cpu: CpuConfig,
     pub cputemp: CpuTempConfig,
     pub memory: MemoryConfig,
+    #[serde(default)]
+    pub systemload: SystemLoadConfig,
 
     pub network1: NetworkConfig,
     pub network2: NetworkConfig,
@@ -582,6 +623,7 @@ impl Default for MinimonConfig {
             cpu: CpuConfig::default(),
             cputemp: CpuTempConfig::default(),
             memory: MemoryConfig::default(),
+            systemload: SystemLoadConfig::default(),
             network1: NetworkConfig {
                 variant: NetworkVariant::Combined,
                 ..Default::default()
@@ -603,5 +645,56 @@ impl Default for MinimonConfig {
             panel_spacing: 3, // Slider setting for cosmic.space_xs()
             content_order: ContentOrder::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upgrading_content_order_preserves_custom_positions_and_is_idempotent() {
+        let original = vec![
+            ContentType::GpuInfo,
+            ContentType::DiskUsage,
+            ContentType::NetworkUsage,
+            ContentType::MemoryUsage,
+            ContentType::CpuTemp,
+            ContentType::CpuUsage,
+        ];
+        let mut order = ContentOrder {
+            order: original.clone(),
+        };
+        order.include_missing();
+        order.include_missing();
+        assert_eq!(&order.order[..original.len()], original.as_slice());
+        assert_eq!(order.order.last(), Some(&ContentType::SystemLoad));
+        assert_eq!(order.order.len(), original.len() + 1);
+    }
+
+    #[test]
+    fn upgrading_content_order_keeps_an_existing_system_load_position() {
+        let mut order = ContentOrder::default();
+        order.order.reverse();
+        let original = order.clone();
+        order.include_missing();
+        assert_eq!(order, original);
+    }
+    #[test]
+    fn upgrading_content_order_appends_all_missing_sensors_in_default_order() {
+        let mut order = ContentOrder {
+            order: vec![ContentType::GpuInfo],
+        };
+        let expected = std::iter::once(ContentType::GpuInfo)
+            .chain(
+                ContentOrder::default()
+                    .order
+                    .into_iter()
+                    .filter(|kind| *kind != ContentType::GpuInfo),
+            )
+            .collect::<Vec<_>>();
+        order.include_missing();
+        order.include_missing();
+        assert_eq!(order.order, expected);
     }
 }

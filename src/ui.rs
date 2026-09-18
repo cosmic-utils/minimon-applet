@@ -86,6 +86,25 @@ pub fn sensor_header<'a>(
         .into()
 }
 
+/// A compact multi-reading header with values beside a reserved chart preview.
+pub fn readings_sensor_header<'a>(
+    title: impl Into<Cow<'a, str>> + 'a,
+    values: impl IntoIterator<Item = Element<'a, Message>>,
+    preview: Element<'a, Message>,
+) -> Element<'a, Message> {
+    widget::row::with_capacity(3)
+        .push(
+            text::title3(title)
+                .wrapping(Wrapping::WordOrGlyph)
+                .width(Length::Fill),
+        )
+        .push(widget::column::with_children(values).align_x(Alignment::End))
+        .push(preview)
+        .align_y(Alignment::Center)
+        .spacing(cosmic::theme::spacing().space_s)
+        .into()
+}
+
 /// A list row holding a title and a `go-next` chevron, used to navigate into a
 /// sub page.
 pub fn go_next_row<'a>(
@@ -165,6 +184,11 @@ pub fn chart_color_row<'a>(color: Srgba<u8>, on_press: Message) -> Element<'a, M
     control_row(fl!("chart-color"), color_swatch(color, on_press))
 }
 
+/// Plural label for a chart with several independently colored readings.
+pub fn chart_colors_row<'a>(color: Srgba<u8>, on_press: Message) -> Element<'a, Message> {
+    control_row(fl!("chart-colors"), color_swatch(color, on_press))
+}
+
 /// The color a chart of `kind` is best represented by in a [`chart_color_row`].
 ///
 /// Charts draw their samples with `graph1`, except the heat chart, which uses a
@@ -180,12 +204,7 @@ pub fn chart_swatch(colors: &ChartColors, kind: ChartKind) -> Srgba<u8> {
 
 /// A filled rectangle acting as a button, previewing a chart color.
 fn color_swatch<'a>(color: Srgba<u8>, on_press: Message) -> Element<'a, Message> {
-    let color = cosmic::iced::Color::from_rgba8(
-        color.red,
-        color.green,
-        color.blue,
-        f32::from(color.alpha) / 255.0,
-    );
+    let color = cosmic::iced::Color::from(color);
 
     // The stock swatch is a small square; a wider one reads better next to the
     // chart it stands for.
@@ -228,4 +247,60 @@ pub fn min_temperature_row<'a>(
             on_change,
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmic::iced::{
+        Font, Pixels, Size,
+        advanced::{layout::Limits, widget::Tree},
+    };
+
+    #[test]
+    fn system_load_header_keeps_the_entire_preview_inside_the_popup() {
+        let renderer = cosmic::Renderer::new(Font::DEFAULT, Pixels(14.0));
+        for width in [280.0, 332.0] {
+            for value in [
+                "0.00 | 0.00 | 0.00",
+                "6.93 | 7.25 | 7.97",
+                "123.45 | 123.45 | 123.45",
+                "12345.67 | 12345.67 | 12345.67",
+            ] {
+                for preview_width in [PREVIEW_SIZE, PREVIEW_MAX_WIDTH] {
+                    let mut header = readings_sensor_header(
+                        "System Load",
+                        value
+                            .split(" | ")
+                            .map(|value| text::body(value.to_owned()).into()),
+                        widget::container(widget::space::horizontal())
+                            .width(preview_width)
+                            .height(PREVIEW_SIZE)
+                            .into(),
+                    );
+                    let mut tree = Tree::new(header.as_widget());
+                    let layout = header.as_widget_mut().layout(
+                        &mut tree,
+                        &renderer,
+                        &Limits::new(Size::ZERO, Size::new(width, 500.0)),
+                    );
+                    let preview = layout.children().last().unwrap().bounds();
+                    assert_eq!(
+                        preview.width,
+                        f32::from(preview_width),
+                        "{value} at {width}px"
+                    );
+                    assert!(
+                        preview.x + preview.width <= width,
+                        "preview overflows popup: {preview:?}, {value} at {width}px"
+                    );
+                    let title = layout.children()[0].bounds();
+                    let readings = layout.children()[1].bounds();
+                    assert!(title.x + title.width <= readings.x);
+                    assert!(readings.x + readings.width <= preview.x);
+                    assert_eq!(layout.children()[1].children().len(), 3);
+                }
+            }
+        }
+    }
 }

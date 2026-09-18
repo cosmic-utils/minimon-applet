@@ -144,6 +144,143 @@ pub fn line(samples: &VecDeque<f64>, max_y: f64, colors: &SvgColors) -> String {
     svg
 }
 
+/// Three readings on a shared scale, with non-overlapping colored bands.
+pub fn triple_line(
+    samples: [&VecDeque<f64>; 3],
+    max_y: f64,
+    colors: &ChartColors,
+    threshold: Option<f64>,
+) -> String {
+    let band_colors = [colors.graph1, colors.graph2, colors.graph3].map(band_fill_color);
+    let colors = SvgColors::new(colors);
+    let threshold = threshold.filter(|value| value.is_finite() && *value > 0.0);
+    let max_y = max_y.max(threshold.unwrap_or(0.0) * 1.15).max(1.0);
+    let mut svg = String::from(LINESVG_1);
+    svg.push_str(&colors.background);
+    svg.push_str(LINESVG_2);
+    svg.push_str(&colors.frame);
+    svg.push_str(LINESVG_3);
+
+    let points = samples.map(|series| {
+        let mut points = String::with_capacity(series.len() * 12);
+        for (index, value) in series.iter().enumerate() {
+            let x = index * 2 + 1;
+            let y = 41.0 - 40.0 * value.clamp(0.0, max_y) / max_y;
+            if index > 0 {
+                points.push(' ');
+            }
+            let _ = write!(points, "{x},{y:.2}");
+        }
+        points
+    });
+    let graph_colors = [&colors.graph1, &colors.graph2, &colors.graph3];
+
+    // Each band belongs to its upper boundary. Split at crossings so the
+    // ownership follows the curves instead of depending on their drawing order.
+    let mut bands: [String; 3] = std::array::from_fn(|_| String::new());
+    for band in line_bands(samples, max_y) {
+        let [(x0, y0), (x1, y1), (x2, y2), (x3, y3)] = band.points;
+        let _ = write!(
+            bands[band.series],
+            "M{x0:.4},{y0:.4} L{x1:.4},{y1:.4} L{x2:.4},{y2:.4} L{x3:.4},{y3:.4} Z "
+        );
+    }
+    for (path, fill) in bands.iter().zip(&band_colors) {
+        if !path.is_empty() {
+            let _ = write!(svg, r#"<path fill="{fill}" d="{path}"/>"#);
+        }
+    }
+    for (points, color) in points.iter().zip(graph_colors) {
+        if points.is_empty() {
+            continue;
+        }
+        svg.push_str(LINESVG_4);
+        svg.push_str(color);
+        svg.push_str(LINESVG_5);
+        svg.push_str(points);
+        svg.push_str(r#""/>"#);
+    }
+    if let Some(value) = threshold {
+        let y = 41.0 - 40.0 * value / max_y;
+        // A dark outline keeps the neutral marker visible over any curve color.
+        let _ = write!(
+            svg,
+            r##"<g fill="none" stroke-dasharray="2 1.5"><path d="M1,{y:.2} H41" stroke="#202020" stroke-width="1.3"/><path d="M1,{y:.2} H41" stroke="#EEEEEE" stroke-width="0.65"/></g>"##
+        );
+    }
+    svg.push_str(LINESVG_FRAME_START);
+    svg.push_str(&colors.frame);
+    svg.push_str(LINESVG_FRAME_END);
+    svg.push_str(LINESVG_9);
+    svg
+}
+
+/// Opaque shading for a curve's band, computed before SVG encoding.
+fn band_fill_color(color: Srgba<u8>) -> String {
+    format!(
+        "#{:02X}{:02X}{:02X}",
+        color.red / 2,
+        color.green / 2,
+        color.blue / 2
+    )
+}
+
+#[derive(Debug)]
+struct LineBand {
+    series: usize,
+    points: [(f64, f64); 4],
+}
+
+fn line_bands(samples: [&VecDeque<f64>; 3], max_y: f64) -> Vec<LineBand> {
+    let mut bands = Vec::new();
+    let count = samples.iter().map(|series| series.len()).min().unwrap_or(0);
+    let y = |value: f64| 41.0 - 40.0 * value / max_y;
+    for index in 0..count.saturating_sub(1) {
+        let left = samples.map(|series| series[index].clamp(0.0, max_y));
+        let right = samples.map(|series| series[index + 1].clamp(0.0, max_y));
+        let at = |series: usize, t: f64| left[series] + (right[series] - left[series]) * t;
+        let mut splits = vec![0.0, 1.0];
+        for a in 0..3 {
+            for b in a + 1..3 {
+                let delta = (right[a] - left[a]) - (right[b] - left[b]);
+                if delta != 0.0 {
+                    let t = (left[b] - left[a]) / delta;
+                    if t > 0.0 && t < 1.0 {
+                        splits.push(t);
+                    }
+                }
+            }
+        }
+        splits.sort_by(f64::total_cmp);
+        splits.dedup();
+        for interval in splits.windows(2) {
+            let (start, end) = (interval[0], interval[1]);
+            let middle = (start + end) / 2.0;
+            let mut order = [0, 1, 2];
+            order.sort_by(|a, b| at(*a, middle).total_cmp(&at(*b, middle)));
+            let x0 = index as f64 * 2.0 + 1.0 + start * 2.0;
+            let x1 = index as f64 * 2.0 + 1.0 + end * 2.0;
+            let mut lower = (0.0, 0.0);
+            for series in order {
+                let upper = (at(series, start), at(series, end));
+                if upper != lower {
+                    bands.push(LineBand {
+                        series,
+                        points: [
+                            (x0, y(lower.0)),
+                            (x1, y(lower.1)),
+                            (x1, y(upper.1)),
+                            (x0, y(upper.0)),
+                        ],
+                    });
+                }
+                lower = upper;
+            }
+        }
+    }
+    bands
+}
+
 pub fn line_stacked(
     samples_used: &VecDeque<f64>,
     samples_allocated: &VecDeque<f64>,
@@ -529,3 +666,135 @@ const DBLLINESVG_8: &str = r#"  41,41 1,41"/>"#;
 const DBLLINESVG_9: &str = r#"</g></svg>"#;
 
 const DBLLINESVG_LEN: usize = 1000; // For preallocation
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn threshold_stays_visible_and_is_drawn_above_curves() {
+        let colors = ChartColors::new(
+            crate::config::DeviceKind::SystemLoad,
+            crate::config::ChartKind::Line,
+        );
+        let series = VecDeque::from([0.0, 8.0]);
+        for (maximum, expected_y) in [(1.0, "6.22"), (16.0, "21.00")] {
+            let svg = triple_line([&series; 3], maximum, &colors, Some(8.0));
+            assert!(svg.contains(&format!("M1,{expected_y} H41")));
+            assert!(svg.rfind("<polyline").unwrap() < svg.find("stroke-dasharray").unwrap());
+        }
+        let svg = triple_line([&series; 3], 8.0, &colors, None);
+        assert!(!svg.contains("stroke-dasharray"));
+    }
+
+    #[test]
+    fn triple_line_keeps_strokes_and_uses_opaque_darker_bands() {
+        let colors = ChartColors::new(
+            crate::config::DeviceKind::SystemLoad,
+            crate::config::ChartKind::Line,
+        );
+        let svg = triple_line(
+            [
+                &VecDeque::from([1.0, 1.0]),
+                &VecDeque::from([4.0, 4.0]),
+                &VecDeque::from([2.0, 2.0]),
+            ],
+            4.0,
+            &colors,
+            None,
+        );
+        assert_eq!(svg.matches("<polyline").count(), 3);
+        assert_eq!(svg.matches("<path fill=").count(), 3);
+        assert!(!svg.contains("fill-opacity"));
+        assert!(svg.rfind("<path").unwrap() < svg.find("<polyline").unwrap());
+        let svg_colors = SvgColors::new(&colors);
+        for (color, stroke) in [colors.graph1, colors.graph2, colors.graph3]
+            .into_iter()
+            .zip([&svg_colors.graph1, &svg_colors.graph2, &svg_colors.graph3])
+        {
+            assert!(svg.contains(&format!(r#"<path fill="{}""#, band_fill_color(color))));
+            assert!(svg.contains(&format!(r#"stroke="{stroke}""#)));
+        }
+    }
+
+    #[test]
+    fn fill_bands_follow_the_upper_curve_even_when_curves_cross() {
+        let samples = [
+            VecDeque::from([1.0, 4.0]),
+            VecDeque::from([4.0, 1.0]),
+            VecDeque::from([3.0, 3.0]),
+        ];
+        let bands = line_bands([&samples[0], &samples[1], &samples[2]], 4.0);
+        // At each point, exactly the nearest curve above it owns the fill.
+        for step in 1..40 {
+            let t = step as f64 / 40.0;
+            let x = 1.0 + 2.0 * t;
+            let values = samples.each_ref().map(|s| s[0] + (s[1] - s[0]) * t);
+            for level in 1..40 {
+                let value = level as f64 / 10.0;
+                if values.iter().any(|v| (v - value).abs() < 1e-8) {
+                    continue;
+                }
+                let expected = (0..3)
+                    .filter(|i| values[*i] > value)
+                    .min_by(|a, b| values[*a].total_cmp(&values[*b]));
+                let y = 41.0 - 10.0 * value;
+                let owners: Vec<_> = bands
+                    .iter()
+                    .filter(|band| {
+                        let [a, b, c, d] = band.points;
+                        if x < a.0 || x >= b.0 {
+                            return false;
+                        }
+                        let u = (x - a.0) / (b.0 - a.0);
+                        let bottom = a.1 + (b.1 - a.1) * u;
+                        let top = d.1 + (c.1 - d.1) * u;
+                        y > top && y < bottom
+                    })
+                    .map(|band| band.series)
+                    .collect();
+                if let Some(expected) = expected {
+                    assert_eq!(owners.len(), 1, "x={x}, load={value}");
+                    // At an exact crossing either tied curve can own the band.
+                    assert!(
+                        (values[owners[0]] - values[expected]).abs() < 1e-8,
+                        "wrong band color at x={x}, load={value}"
+                    );
+                } else {
+                    assert!(
+                        owners.is_empty(),
+                        "fill above every curve at x={x}, load={value}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn flat_bands_match_the_requested_blue_orange_green_order() {
+        let bands = line_bands(
+            [
+                &VecDeque::from([1.0, 1.0]),
+                &VecDeque::from([4.0, 4.0]),
+                &VecDeque::from([2.0, 2.0]),
+            ],
+            4.0,
+        );
+        assert_eq!(
+            bands.iter().map(|b| b.series).collect::<Vec<_>>(),
+            [0, 2, 1]
+        );
+        assert_eq!(
+            bands[0].points,
+            [(1.0, 41.0), (3.0, 41.0), (3.0, 31.0), (1.0, 31.0)]
+        );
+        assert_eq!(
+            bands[1].points,
+            [(1.0, 31.0), (3.0, 31.0), (3.0, 21.0), (1.0, 21.0)]
+        );
+        assert_eq!(
+            bands[2].points,
+            [(1.0, 21.0), (3.0, 21.0), (3.0, 1.0), (1.0, 1.0)]
+        );
+    }
+}

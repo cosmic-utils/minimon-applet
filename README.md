@@ -2,6 +2,7 @@
 
 A configurable applet for displaying the following:
 * CPU load
+* System load averages (1, 5 and 15 minutes)
 * CPU temperature
 * Memory usage
 * Network utilization
@@ -9,6 +10,10 @@ A configurable applet for displaying the following:
 * GPU and VRAM usage on Nvidia and AMD GPUs. 
 
 Can sit in the panel or Dock. Configurable refresh rate and many display options.
+
+Enable System Load in the applet settings to show its values, chart, or both.
+The values show the 1-, 5-, and 15-minute load averages; the chart shows all
+three averages in distinct, configurable colors with a shared adaptive scale. System Load is disabled by default.
 
 ![Image](cosmic-applet-minimon.png)
 
