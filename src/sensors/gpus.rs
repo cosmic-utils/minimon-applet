@@ -138,7 +138,20 @@ pub struct GpuGraph {
     config: GpuUsageConfig,
 }
 
+/// Unavailable readings use the theme's placeholder text instead of active colors.
+fn available_value_style(disabled: bool, style: cosmic::theme::Text) -> cosmic::theme::Text {
+    if disabled {
+        cosmic::theme::Text::Default
+    } else {
+        style
+    }
+}
+
 impl GpuGraph {
+    pub fn value_style(&self) -> cosmic::theme::Text {
+        available_value_style(self.disabled, self.config.value_style(ColorVariant::Graph1))
+    }
+
     fn new(id: &str) -> Self {
         let mut percentage = String::with_capacity(6);
         percentage.push('0');
@@ -354,6 +367,10 @@ pub struct VramGraph {
 }
 
 impl VramGraph {
+    pub fn value_style(&self) -> cosmic::theme::Text {
+        available_value_style(self.disabled, self.config.value_style(ColorVariant::Graph1))
+    }
+
     // id: a unique id, total: RAM size in GB
     fn new(id: &str, total: f64) -> Self {
         VramGraph {
@@ -666,6 +683,20 @@ impl TempGraph {
         super::svg_icon_container::<Message>(svg)
     }
 
+    pub fn value_style(&self) -> cosmic::theme::Text {
+        available_value_style(
+            self.disabled,
+            super::temperature_value_style(
+                self.config.use_graph_colors,
+                self.config.chart,
+                self.config.value_style(ColorVariant::Graph1),
+                &self.samples,
+                self.config.min_temp,
+                self.max_temp,
+            ),
+        )
+    }
+
     pub fn latest_sample(&self) -> f64 {
         *self.samples.back().unwrap_or(&0f64)
     }
@@ -950,6 +981,11 @@ impl Gpu {
                         Message::GpuToggleValue(value_id.clone(), DeviceKind::Gpu, value)
                     }),
             )
+            .add(ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::Gpu,
+                Some(self.id()),
+            ))
             .add(ui::chart_type_row(
                 &self.gpu.graph_options,
                 Some(kind.into()),
@@ -985,6 +1021,11 @@ impl Gpu {
                         Message::GpuToggleValue(value_id.clone(), DeviceKind::Vram, value)
                     }),
             )
+            .add(ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::Vram,
+                Some(self.id()),
+            ))
             .add(ui::chart_type_row(
                 &self.vram.graph_options,
                 Some(kind.into()),
@@ -1028,6 +1069,11 @@ impl Gpu {
                     },
                 ),
             )
+            .add(ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::GpuTemp,
+                Some(self.id()),
+            ))
             .add(ui::temperature_unit_row(
                 &self.temp.unit_options,
                 Some(config.unit.into()),
@@ -1127,3 +1173,45 @@ const HEAT_DEMO_SAMPLES: [f64; 21] = [
     41.0, 42.0, 43.5, 45.0, 48.0, 51.0, 55.0, 57.0, 59.5, 62.0, 64.0, 67.0, 70.0, 74.0, 78.0, 83.0,
     87.0, 90.0, 95.0, 98.0, 100.0,
 ];
+
+#[cfg(test)]
+mod value_style_tests {
+    use super::*;
+
+    fn rgb(style: cosmic::theme::Text) -> cosmic::iced::Color {
+        match style {
+            cosmic::theme::Text::Color(color) => color,
+            _ => panic!("expected active color"),
+        }
+    }
+
+    #[test]
+    fn unavailable_gpu_readings_use_default_style_and_recover_after_resume() {
+        let mut usage = GpuGraph::new("test");
+        let mut vram = VramGraph::new("test", 8.0);
+        let mut temp = TempGraph::new("test");
+        for kind in [ChartKind::Ring, ChartKind::Line, ChartKind::Heat] {
+            temp.config.chart = kind;
+            // The same disabled flags are set by Gpu::stop and cleared on resume.
+            macro_rules! check {
+                ($graph:ident) => {{
+                    $graph.config.use_graph_colors = true;
+                    let active = rgb($graph.value_style());
+                    $graph.disabled = true;
+                    assert!(matches!($graph.value_style(), cosmic::theme::Text::Default));
+                    $graph.disabled = false;
+                    assert_eq!(rgb($graph.value_style()), active);
+                    $graph.config.use_graph_colors = false;
+                    for disabled in [false, true] {
+                        $graph.disabled = disabled;
+                        assert!(matches!($graph.value_style(), cosmic::theme::Text::Default));
+                    }
+                    $graph.disabled = false;
+                }};
+            }
+            check!(usage);
+            check!(vram);
+            check!(temp);
+        }
+    }
+}

@@ -271,6 +271,19 @@ impl Colors {
     }
 }
 
+/// Graph fill opacity should not make numeric text translucent.
+pub fn value_style(enabled: bool, color: Srgba<u8>) -> cosmic::theme::Text {
+    if enabled {
+        cosmic::theme::Text::Color(cosmic::iced::Color::from_rgb8(
+            color.red,
+            color.green,
+            color.blue,
+        ))
+    } else {
+        cosmic::theme::Text::Default
+    }
+}
+
 macro_rules! make_config {
     ($name:ident { $($extra:tt)* }) => {
         #[derive(Debug, Clone, Serialize, Deserialize, CosmicConfigEntry, PartialEq)]
@@ -282,6 +295,7 @@ macro_rules! make_config {
             label_visible: bool,
             icon_visible: bool,
             pub chart: ChartKind,
+            pub use_graph_colors: bool,
             colors: Colors,
             $($extra)*
         }
@@ -317,6 +331,9 @@ macro_rules! make_config {
             pub fn colors(&self) -> &ChartColors {
                 self.colors.get(self.chart)
             }
+            pub fn value_style(&self, variant: ColorVariant) -> cosmic::theme::Text {
+                value_style(self.use_graph_colors, self.colors().get_color(variant))
+            }
             pub fn colors_mut(&mut self) -> &mut ChartColors {
                 self.colors.get_mut(self.chart)
             }
@@ -337,6 +354,7 @@ impl Default for CpuConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Cpu),
             no_decimals: false,
@@ -358,6 +376,7 @@ impl Default for CpuTempConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Heat,
             colors: Colors::new(DeviceKind::CpuTemp),
             unit: TempUnit::Celsius,
@@ -366,9 +385,7 @@ impl Default for CpuTempConfig {
     }
 }
 
-make_config!(SystemLoadConfig {
-    pub use_graph_colors: bool,
-});
+make_config!(SystemLoadConfig {});
 
 impl Default for SystemLoadConfig {
     fn default() -> Self {
@@ -377,9 +394,9 @@ impl Default for SystemLoadConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Line,
             colors: Colors::new(DeviceKind::SystemLoad),
-            use_graph_colors: false,
         }
     }
 }
@@ -397,6 +414,7 @@ impl Default for MemoryConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Memory),
             percentage: false,
@@ -428,6 +446,7 @@ impl Default for NetworkConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Line,
             colors: Colors::new(DeviceKind::Network(NetworkVariant::Combined)),
             adaptive: true,
@@ -457,6 +476,7 @@ impl Default for DisksConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Line,
             colors: Colors::new(DeviceKind::Disks(DisksVariant::Combined)),
             variant: DisksVariant::Combined,
@@ -473,6 +493,7 @@ impl Default for GpuUsageConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Gpu),
         }
@@ -488,6 +509,7 @@ impl Default for GpuVramConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::Vram),
         }
@@ -506,6 +528,7 @@ impl Default for GpuTempConfig {
             value_visible: false,
             label_visible: false,
             icon_visible: false,
+            use_graph_colors: false,
             chart: ChartKind::Ring,
             colors: Colors::new(DeviceKind::GpuTemp),
             unit: TempUnit::Celsius,
@@ -651,6 +674,62 @@ impl Default for MinimonConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_configs_default_to_theme_colors_and_system_load_keeps_its_choice() {
+        use serde::de::value::{Error, MapDeserializer};
+        macro_rules! check_default {
+            ($($config:ty),+) => { $(
+                let empty = MapDeserializer::<_, Error>::new(std::iter::empty::<(&str, bool)>());
+                let config = <$config>::deserialize(empty).unwrap();
+                assert!(!config.use_graph_colors);
+            )+ };
+        }
+        check_default!(
+            CpuConfig,
+            CpuTempConfig,
+            SystemLoadConfig,
+            MemoryConfig,
+            NetworkConfig,
+            DisksConfig,
+            GpuUsageConfig,
+            GpuVramConfig,
+            GpuTempConfig
+        );
+        let saved = MapDeserializer::<_, Error>::new([("use_graph_colors", true)].into_iter());
+        assert!(
+            SystemLoadConfig::deserialize(saved)
+                .unwrap()
+                .use_graph_colors
+        );
+    }
+
+    #[test]
+    fn value_colors_use_selected_series_without_fill_transparency() {
+        let mut config = MemoryConfig::default();
+        assert!(matches!(
+            config.value_style(ColorVariant::Graph1),
+            cosmic::theme::Text::Default
+        ));
+        config.use_graph_colors = true;
+        for kind in [ChartKind::Ring, ChartKind::Line] {
+            config.chart = kind;
+            config.colors_mut().graph1 = Srgba::new(10, 20, 30, 40);
+            config.colors_mut().graph3 = Srgba::new(50, 60, 70, 80);
+            for (series, expected) in [
+                (ColorVariant::Graph1, (10, 20, 30)),
+                (ColorVariant::Graph3, (50, 60, 70)),
+            ] {
+                let cosmic::theme::Text::Color(actual) = config.value_style(series) else {
+                    panic!("expected graph color")
+                };
+                assert_eq!(
+                    actual,
+                    cosmic::iced::Color::from_rgb8(expected.0, expected.1, expected.2)
+                );
+            }
+        }
+    }
 
     #[test]
     fn upgrading_content_order_preserves_custom_positions_and_is_idempotent() {

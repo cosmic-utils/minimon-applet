@@ -252,6 +252,11 @@ impl Sensor for Disks {
                         Message::ToggleDisksValue(variant, t)
                     }),
             )
+            .add(crate::ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::Disks(variant),
+                None,
+            ))
             .add(ui::chart_color_row(
                 swatch,
                 Message::ColorPickerOpen(DeviceKind::Disks(variant), ChartKind::Line, None),
@@ -276,6 +281,14 @@ impl Default for Disks {
 }
 
 impl Disks {
+    pub fn write_value_style(&self) -> cosmic::theme::Text {
+        self.config.value_style(ColorVariant::Graph1)
+    }
+
+    pub fn read_value_style(&self) -> cosmic::theme::Text {
+        self.config.value_style(ColorVariant::Graph2)
+    }
+
     fn makestr(val: u64, format: UnitVariant) -> String {
         let mut formatted = String::with_capacity(20);
 

@@ -342,6 +342,11 @@ impl Sensor for CpuTemp {
                 settings::item::builder(fl!("enable-value"))
                     .toggler(config.value_visible(), Message::ToggleCpuTempValue),
             )
+            .add(crate::ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::CpuTemp,
+                None,
+            ))
             .add(
                 settings::item::builder(fl!("enable-label"))
                     .toggler(config.label_visible(), Message::ToggleCpuTempLabel),
@@ -408,6 +413,17 @@ impl CpuTemp {
     // true if a CPU temperature hwmon path was found
     pub fn is_found(&self) -> bool {
         self.hwmon_temp.is_some()
+    }
+
+    pub fn value_style(&self) -> cosmic::theme::Text {
+        super::temperature_value_style(
+            self.config.use_graph_colors,
+            self.config.chart,
+            self.config.value_style(ColorVariant::Graph1),
+            &self.samples,
+            self.config.min_temp,
+            self.hwmon_temp.as_ref().map_or(100.0, |hw| hw.crit_temp),
+        )
     }
 
     pub fn latest_sample(&self) -> f64 {

@@ -326,6 +326,11 @@ impl Sensor for Cpu {
                 settings::item::builder(fl!("enable-value"))
                     .toggler(config.value_visible(), Message::ToggleCpuValue),
             )
+            .add(crate::ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::Cpu,
+                None,
+            ))
             .add(
                 settings::item::builder(fl!("enable-label"))
                     .toggler(config.label_visible(), Message::ToggleCpuLabel),
@@ -363,6 +368,10 @@ impl Sensor for Cpu {
 }
 
 impl Cpu {
+    pub fn value_style(&self) -> cosmic::theme::Text {
+        self.config.value_style(ColorVariant::Graph1)
+    }
+
     pub fn new(is_horizontal: bool) -> Self {
         // value and percentage are pre-allocated and reused as they're changed often.
         let mut percentage = String::with_capacity(6);
