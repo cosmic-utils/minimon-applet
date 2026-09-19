@@ -419,6 +419,8 @@ make_config!(NetworkConfig {
     pub unit: Option<usize>,
     pub variant: NetworkVariant,
     pub show_bytes: bool,
+    /// None monitors all interfaces; an empty selection monitors none.
+    pub interfaces: Option<Vec<String>>,
 });
 
 impl Default for NetworkConfig {
@@ -435,6 +437,7 @@ impl Default for NetworkConfig {
             unit: Some(0),
             variant: NetworkVariant::Combined,
             show_bytes: false,
+            interfaces: None,
         }
     }
 }

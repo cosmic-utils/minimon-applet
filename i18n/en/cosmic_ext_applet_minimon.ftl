@@ -111,3 +111,8 @@ chart-colors = Chart colors
 system-load-capacity = CPU capacity
 use-graph-colors = Use graph colors for values
 use-graph-colors-description = Match numeric values to their graph colors instead of the default text color.
+
+net-all-interfaces = Monitor all network interfaces
+net-interfaces-description = Includes loopback, VPN and virtual interfaces. Turn off to choose interfaces for both download and upload.
+net-no-interfaces = No interfaces selected. Network traffic will be zero.
+net-interfaces = Network interfaces
