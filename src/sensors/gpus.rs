@@ -531,7 +531,7 @@ impl VramGraph {
 
 pub struct TempGraph {
     id: String,
-    samples: BoundedVecDeque<f64>,
+    samples: super::temperature_history::TemperatureHistory,
     unit_options: Vec<&'static str>,
     graph_options: Vec<&'static str>,
     max_temp: f64,
@@ -546,7 +546,7 @@ impl TempGraph {
     fn new(id: &str) -> Self {
         TempGraph {
             id: id.to_owned(),
-            samples: BoundedVecDeque::from_iter(std::iter::repeat_n(0.0, MAX_SAMPLES), MAX_SAMPLES),
+            samples: super::temperature_history::TemperatureHistory::new(MAX_SAMPLES),
             unit_options: super::UNIT_OPTIONS.to_vec(),
             graph_options: super::GRAPH_OPTIONS_RING_LINE_HEAT.to_vec(),
             max_temp: 100.0,
@@ -566,15 +566,14 @@ impl TempGraph {
 
     fn update_config(&mut self, config: &dyn Any, _refresh_rate: u32) {
         if let Some(cfg) = config.downcast_ref::<GpuTempConfig>() {
+            self.samples.set_floor(cfg.min_temp);
             self.config = cfg.clone();
             self.svg_colors = SvgColors::new(cfg.colors());
         }
     }
 
     pub fn clear(&mut self) {
-        for sample in &mut self.samples {
-            *sample = 0.0;
-        }
+        self.samples.clear();
     }
 
     #[cfg(feature = "lyon_charts")]
@@ -610,7 +609,7 @@ impl TempGraph {
             }
             ChartKind::Line => chart_container!(crate::charts::line::LineChart::new(
                 MAX_SAMPLES,
-                &self.samples,
+                self.samples.raw(),
                 &VecDeque::new(),
                 Some(self.max_temp),
                 if self.disabled {
@@ -621,7 +620,7 @@ impl TempGraph {
             )),
             ChartKind::Heat => chart_container!(crate::charts::heat::HeatChart::new(
                 MAX_SAMPLES,
-                &self.samples,
+                self.samples.raw(),
                 Some(self.max_temp),
                 if self.disabled {
                     &*DISABLED_COLORS
@@ -658,22 +657,10 @@ impl TempGraph {
                 crate::svg_graph::ring(&value, percentage, None, colors)
             }
             ChartKind::Line => {
-                if self.config.min_temp == 0.0 {
-                    crate::svg_graph::line(&self.samples, self.max_temp, colors)
-                } else {
-                    let normalized =
-                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
-                    crate::svg_graph::line(&normalized, self.max_temp, colors)
-                }
+                crate::svg_graph::line(self.samples.chart_samples(), self.max_temp, colors)
             }
             ChartKind::Heat => {
-                if self.config.min_temp == 0.0 {
-                    crate::svg_graph::heat(&self.samples, self.max_temp as u64, colors)
-                } else {
-                    let normalized =
-                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
-                    crate::svg_graph::heat(&normalized, self.max_temp as u64, colors)
-                }
+                crate::svg_graph::heat(self.samples.chart_samples(), self.max_temp as u64, colors)
             }
             ChartKind::StackedBars => {
                 log::error!("StackedBars not supported for GpuTemp");
@@ -690,15 +677,14 @@ impl TempGraph {
                 self.config.use_graph_colors,
                 self.config.chart,
                 self.config.value_style(ColorVariant::Graph1),
-                &self.samples,
-                self.config.min_temp,
+                self.samples.chart_samples(),
                 self.max_temp,
             ),
         )
     }
 
     pub fn latest_sample(&self) -> f64 {
-        *self.samples.back().unwrap_or(&0f64)
+        *self.samples.raw().back().unwrap_or(&0f64)
     }
 
     pub fn graph_kind(&self) -> crate::config::ChartKind {
@@ -1183,6 +1169,33 @@ mod value_style_tests {
             cosmic::theme::Text::Color(color) => color,
             _ => panic!("expected active color"),
         }
+    }
+
+    #[test]
+    fn temperature_cache_updates_on_samples_configuration_and_pause() {
+        let mut graph = TempGraph::new("test");
+        graph.update(75_000);
+        let mut config = GpuTempConfig::default();
+        config.min_temp = 50.0;
+        graph.update_config(&config, 1000);
+        assert_eq!(graph.latest_sample(), 75.0);
+        assert_eq!(graph.samples.chart_samples().back(), Some(&50.0));
+        graph.update(150_000);
+        assert_eq!(graph.samples.chart_samples().back(), Some(&100.0));
+        config.min_temp = 0.0;
+        graph.update_config(&config, 1000);
+        assert_eq!(graph.samples.chart_samples(), graph.samples.raw());
+        graph.clear();
+        assert!(graph.samples.raw().iter().all(|value| *value == 0.0));
+        assert!(
+            graph
+                .samples
+                .chart_samples()
+                .iter()
+                .all(|value| *value == 0.0)
+        );
+        graph.update(60_000);
+        assert_eq!(graph.samples.chart_samples().back(), Some(&60.0));
     }
 
     #[test]

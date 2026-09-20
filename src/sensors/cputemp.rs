@@ -16,7 +16,6 @@ use crate::app::Message;
 use crate::ui;
 use std::any::Any;
 
-use bounded_vec_deque::BoundedVecDeque;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -134,7 +133,7 @@ impl HwmonTemp {
 #[derive(Debug)]
 pub struct CpuTemp {
     hwmon_temp: Option<HwmonTemp>,
-    pub samples: BoundedVecDeque<f64>,
+    samples: super::temperature_history::TemperatureHistory,
     graph_options: Vec<&'static str>,
     unit_options: Vec<&'static str>,
     /// colors cached so we don't need to convert to string every time
@@ -197,6 +196,7 @@ impl DemoGraph for CpuTemp {
 impl Sensor for CpuTemp {
     fn update_config(&mut self, config: &dyn Any, _refresh_rate: u32) {
         if let Some(cfg) = config.downcast_ref::<CpuTempConfig>() {
+            self.samples.set_floor(cfg.min_temp);
             self.config = cfg.clone();
             self.svg_colors.set_colors(cfg.colors());
         }
@@ -253,14 +253,14 @@ impl Sensor for CpuTemp {
             }
             ChartKind::Line => chart_container!(crate::charts::line::LineChart::new(
                 MAX_SAMPLES,
-                &self.samples,
+                self.samples.raw(),
                 &VecDeque::new(),
                 Some(max),
                 &self.config.colors,
             )),
             ChartKind::Heat => chart_container!(crate::charts::heat::HeatChart::new(
                 MAX_SAMPLES,
-                &self.samples,
+                self.samples.raw(),
                 Some(max),
                 &self.config.colors,
             )),
@@ -295,22 +295,10 @@ impl Sensor for CpuTemp {
                 crate::svg_graph::ring(&value, percentage, None, &self.svg_colors)
             }
             ChartKind::Line => {
-                if self.config.min_temp == 0.0 {
-                    crate::svg_graph::line(&self.samples, max, &self.svg_colors)
-                } else {
-                    let normalized =
-                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
-                    crate::svg_graph::line(&normalized, max, &self.svg_colors)
-                }
+                crate::svg_graph::line(self.samples.chart_samples(), max, &self.svg_colors)
             }
             ChartKind::Heat => {
-                if self.config.min_temp == 0.0 {
-                    crate::svg_graph::heat(&self.samples, max as u64, &self.svg_colors)
-                } else {
-                    let normalized =
-                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
-                    crate::svg_graph::heat(&normalized, max as u64, &self.svg_colors)
-                }
+                crate::svg_graph::heat(self.samples.chart_samples(), max as u64, &self.svg_colors)
             }
             ChartKind::StackedBars => {
                 log::error!("StackedBars not supported for CpuTemp");
@@ -398,7 +386,7 @@ impl Default for CpuTemp {
 
         let mut cpu = CpuTemp {
             hwmon_temp: hwmon,
-            samples: BoundedVecDeque::from_iter(std::iter::repeat_n(0.0, MAX_SAMPLES), MAX_SAMPLES),
+            samples: super::temperature_history::TemperatureHistory::new(MAX_SAMPLES),
             graph_options: super::GRAPH_OPTIONS_RING_LINE_HEAT.to_vec(),
             svg_colors: SvgColors::new(&ChartColors::default()),
             unit_options: super::UNIT_OPTIONS.to_vec(),
@@ -420,14 +408,13 @@ impl CpuTemp {
             self.config.use_graph_colors,
             self.config.chart,
             self.config.value_style(ColorVariant::Graph1),
-            &self.samples,
-            self.config.min_temp,
+            self.samples.chart_samples(),
             self.hwmon_temp.as_ref().map_or(100.0, |hw| hw.crit_temp),
         )
     }
 
     pub fn latest_sample(&self) -> f64 {
-        *self.samples.back().unwrap_or(&0f64)
+        *self.samples.raw().back().unwrap_or(&0f64)
     }
 
     pub fn to_string_raw(&self) -> String {

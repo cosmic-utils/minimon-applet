@@ -1,3 +1,4 @@
+mod temperature_history;
 use cosmic::{Element, Renderer, Theme};
 use cosmic::{iced::Length, widget::Container};
 use serde::{Deserialize, Serialize};
@@ -147,56 +148,20 @@ where
     Container::new(icon.icon().height(Length::Fill).width(Length::Fill))
 }
 
-/// Resolve the temperature's style using the same normalization as its chart.
+/// Resolve the temperature style from the same cached samples as its chart.
 fn temperature_value_style(
     enabled: bool,
     kind: crate::config::ChartKind,
     line_style: cosmic::theme::Text,
     samples: &VecDeque<f64>,
-    floor: f64,
     maximum: f64,
 ) -> cosmic::theme::Text {
     if enabled && kind == crate::config::ChartKind::Heat {
-        let value = if floor == 0.0 {
-            *samples.back().unwrap_or(&0.0)
-        } else {
-            *normalize_temps_dynamic(samples, floor)
-                .back()
-                .unwrap_or(&0.0)
-        };
+        let value = *samples.back().unwrap_or(&0.0);
         crate::config::value_style(true, crate::svg_graph::heat_value_color(value, maximum))
     } else {
         line_style
     }
-}
-
-fn normalize_temps_dynamic(samples: &VecDeque<f64>, floor: f64) -> VecDeque<f64> {
-    // Find the maximum value in the samples; if empty, just return empty.
-    let Some(&max_sample) = samples.iter().max_by(|a, b| a.partial_cmp(b).unwrap()) else {
-        return VecDeque::new();
-    };
-
-    // Effective ceiling is the max of floor, the max_sample and 100.0.
-    let ceiling = max_sample.max(floor).max(100.0);
-
-    // If ceiling == floor, everything is at or below the floor -> all zeros.
-    if ceiling <= floor {
-        return samples.iter().map(|_| 0.0).collect();
-    }
-
-    let range = ceiling - floor;
-
-    samples
-        .iter()
-        .map(|&x| {
-            if x <= floor {
-                0.0
-            } else {
-                // Scale floor..=ceiling -> 0.0..=100.0
-                ((x - floor) / range) * 100.0
-            }
-        })
-        .collect()
 }
 
 #[cfg(test)]
@@ -255,8 +220,8 @@ mod value_style_tests {
     }
 
     #[test]
-    fn temperature_styles_share_floor_normalization_and_respect_disabled_colors() {
-        let samples = VecDeque::from([50.0, 75.0]);
+    fn temperature_styles_use_cached_samples_and_respect_disabled_colors() {
+        let samples = VecDeque::from([0.0, 50.0]);
         let line = cosmic::theme::Text::Color(cosmic::iced::Color::from_rgb8(1, 2, 3));
         assert_eq!(
             color(temperature_value_style(
@@ -264,7 +229,6 @@ mod value_style_tests {
                 ChartKind::Line,
                 line,
                 &samples,
-                50.0,
                 100.0
             )),
             color(line)
@@ -275,7 +239,6 @@ mod value_style_tests {
                 ChartKind::Heat,
                 line,
                 &samples,
-                50.0,
                 100.0
             )),
             color(crate::config::value_style(
@@ -289,7 +252,6 @@ mod value_style_tests {
                 ChartKind::Heat,
                 cosmic::theme::Text::Default,
                 &samples,
-                50.0,
                 100.0
             ),
             cosmic::theme::Text::Default
