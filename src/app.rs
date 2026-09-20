@@ -136,6 +136,7 @@ pub enum SettingsVariant {
     Memory,
     SystemLoad,
     Network,
+    NetworkInterfaces,
     Disks,
     Gpu(String),
     About,
@@ -245,6 +246,8 @@ pub enum Message {
     ColorTextInputAlphaChanged(String),
 
     ToggleNetBytes(bool),
+    ToggleAllNetworkInterfaces(bool),
+    ToggleNetworkInterface(String, bool),
     ToggleNetCombined(bool),
     ToggleNetChart(NetworkVariant, bool),
     ToggleNetValue(NetworkVariant, bool),
@@ -590,6 +593,7 @@ impl cosmic::Application for Minimon {
                 Some(SettingsVariant::SystemLoad) => self.systemload_settings_page(),
                 Some(SettingsVariant::Memory) => self.memory_settings_page(),
                 Some(SettingsVariant::Network) => self.network_settings_page(),
+                Some(SettingsVariant::NetworkInterfaces) => self.network_interfaces_page(),
                 Some(SettingsVariant::Disks) => self.disks_settings_page(),
                 Some(SettingsVariant::Gpu(id)) => self.gpu_settings_page(id),
                 Some(SettingsVariant::About) => self.about_settings_page(),
@@ -599,7 +603,11 @@ impl cosmic::Application for Minimon {
             // A sub page keeps its back link above the scroll area, so the way
             // out stays in reach in a page longer than the popup.
             let content: Element<'_, Message> = if self.settings_page.is_some() {
-                let back = ui::back_button(&SETTINGS_BACK, Message::Settings(None));
+                let parent = match self.settings_page {
+                    Some(SettingsVariant::NetworkInterfaces) => Some(SettingsVariant::Network),
+                    _ => None,
+                };
+                let back = ui::back_button(&SETTINGS_BACK, Message::Settings(parent));
 
                 widget::column::with_capacity(2)
                     .push(container(back).padding(Padding::from(padding).bottom(spacing.space_s)))
@@ -790,6 +798,28 @@ impl cosmic::Application for Minimon {
                 self.config.network1.show_bytes = toggle;
                 self.config.network2.show_bytes = toggle;
                 self.save_config();
+            }
+
+            Message::ToggleAllNetworkInterfaces(all) => {
+                let selection = if all {
+                    None
+                } else {
+                    Some(self.network1.interface_names())
+                };
+                self.config.network1.interfaces = selection.clone();
+                self.config.network2.interfaces = selection;
+                self.save_config();
+            }
+            Message::ToggleNetworkInterface(name, enabled) => {
+                if let Some(selected) = &mut self.config.network1.interfaces {
+                    selected.retain(|interface| interface != &name);
+                    if enabled {
+                        selected.push(name);
+                        selected.sort();
+                    }
+                    self.config.network2.interfaces = Some(selected.clone());
+                    self.save_config();
+                }
             }
 
             Message::ToggleNetCombined(toggle) => {
@@ -1400,7 +1430,7 @@ impl Minimon {
                     })
                     .insert(|tab| tab.text(fl!("tab-temperature")).data(SettingsTab::CpuTemp));
             }
-            Some(SettingsVariant::Network)
+            Some(SettingsVariant::Network | SettingsVariant::NetworkInterfaces)
                 if self.config.network1.variant != NetworkVariant::Combined =>
             {
                 tabs = tabs
@@ -1906,7 +1936,11 @@ impl Minimon {
             .add(
                 settings::item::builder(fl!("enable-net-combined"))
                     .toggler(combined, Message::ToggleNetCombined),
-            );
+            )
+            .add(ui::go_next_row(
+                fl!("net-interfaces"),
+                Message::Settings(Some(SettingsVariant::NetworkInterfaces)),
+            ));
 
         self.sensor_page(
             *SETTINGS_NETWORK_CHOICE,
@@ -1915,6 +1949,12 @@ impl Minimon {
             Minimon::chart_preview(network.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
             vec![network.settings_ui(), device.into()],
         )
+    }
+
+    fn network_interfaces_page(&self) -> SettingsColumn<'_> {
+        Column::new()
+            .push(cosmic::widget::text::title3(fl!("net-interfaces")))
+            .push(self.network1.interfaces_ui())
     }
 
     fn disks_settings_page(&self) -> SettingsColumn<'_> {

@@ -126,6 +126,14 @@ impl DemoGraph for Network {
 impl Sensor for Network {
     fn update_config(&mut self, config: &dyn Any, refresh_rate: u32) {
         if let Some(cfg) = config.downcast_ref::<NetworkConfig>() {
+            if self.config.interfaces != cfg.interfaces {
+                // Old samples describe a different set of interfaces.
+                self.download =
+                    BoundedVecDeque::from_iter(std::iter::repeat_n(0, MAX_SAMPLES), MAX_SAMPLES);
+                self.upload =
+                    BoundedVecDeque::from_iter(std::iter::repeat_n(0, MAX_SAMPLES), MAX_SAMPLES);
+                self.networks.refresh(true);
+            }
             self.config = cfg.clone();
             self.svg_colors.set_colors(cfg.colors());
             self.refresh_rate = refresh_rate;
@@ -159,13 +167,12 @@ impl Sensor for Network {
     /// Retrieve the amount of data transmitted since last update.
     fn update(&mut self) {
         self.networks.refresh(true);
-        let mut dl = 0;
-        let mut ul = 0;
-
-        for (_, network) in &self.networks {
-            dl += network.received() * 8;
-            ul += network.transmitted() * 8;
-        }
+        let (dl, ul) = sum_traffic(
+            self.networks
+                .iter()
+                .map(|(name, data)| (name.as_str(), data.received(), data.transmitted())),
+            self.config.interfaces.as_deref(),
+        );
         self.download.push_back(dl);
         self.upload.push_back(ul);
     }
@@ -330,6 +337,43 @@ impl Default for Network {
 }
 
 impl Network {
+    /// Retain selected devices in the list while unplugged or disconnected.
+    pub fn interface_names(&self) -> Vec<String> {
+        self.networks
+            .iter()
+            .map(|(name, _)| name.clone())
+            .chain(self.config.interfaces.iter().flatten().cloned())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
+    pub fn interfaces_ui(&self) -> Element<'_, Message> {
+        let mut section = settings::section().add(
+            settings::item::builder(fl!("net-all-interfaces"))
+                .description(fl!("net-interfaces-description"))
+                .toggler(
+                    self.config.interfaces.is_none(),
+                    Message::ToggleAllNetworkInterfaces,
+                ),
+        );
+        if let Some(selected) = &self.config.interfaces {
+            for name in self.interface_names() {
+                let enabled = selected.contains(&name);
+                section = section.add(ui::control_row(
+                    name.clone(),
+                    widget::toggler(enabled).on_toggle(move |enabled| {
+                        Message::ToggleNetworkInterface(name.clone(), enabled)
+                    }),
+                ));
+            }
+            if selected.is_empty() {
+                section = section.add(widget::text::body(fl!("net-no-interfaces")));
+            }
+        }
+        section.into()
+    }
+
     pub fn download_value_style(&self) -> cosmic::theme::Text {
         self.config.value_style(ColorVariant::Graph1)
     }
@@ -427,6 +471,69 @@ impl Network {
     pub fn upload_label(&self, sample_interval_ms: u32, format: UnitVariant) -> String {
         let rate = Network::last_second_bitrate(&self.upload, sample_interval_ms);
         Network::makestr(rate, format, self.config.show_bytes)
+    }
+}
+
+// Interface counters are bytes; graph history stores bits per sampling interval.
+fn sum_traffic<'a>(
+    interfaces: impl IntoIterator<Item = (&'a str, u64, u64)>,
+    selected: Option<&[String]>,
+) -> (u64, u64) {
+    interfaces
+        .into_iter()
+        .filter(|(name, _, _)| {
+            selected.is_none_or(|selected| selected.iter().any(|interface| interface == name))
+        })
+        .fold((0, 0), |(rx, tx), (_, received, transmitted)| {
+            (rx + received * 8, tx + transmitted * 8)
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_multiple_empty_and_missing_selections_are_distinct() {
+        let counters = [("lo", 1000, 1000), ("eno1", 120, 30), ("wlan0", 80, 20)];
+        assert_eq!(sum_traffic(counters, None), (9600, 8400));
+        let selected = vec!["eno1".into(), "wlan0".into(), "absent0".into()];
+        assert_eq!(sum_traffic(counters, Some(&selected)), (1600, 400));
+        assert_eq!(sum_traffic(counters, Some(&[])), (0, 0));
+        assert_eq!(sum_traffic(counters, Some(&["absent0".into()])), (0, 0));
+        assert_eq!(sum_traffic(counters, Some(&["lo".into()])), (8000, 8000));
+    }
+
+    #[test]
+    fn changing_selection_clears_history_and_preserves_disconnected_devices() {
+        let mut network = Network::default();
+        network.download.push_back(1_000_000);
+        network.upload.push_back(2_000_000);
+        let mut config = NetworkConfig::default();
+        config.interfaces = Some(vec!["missing-test-interface".into()]);
+        network.update_config(&config, 1000);
+        assert!(network.download.iter().all(|value| *value == 0));
+        assert!(network.upload.iter().all(|value| *value == 0));
+        assert!(
+            network
+                .interface_names()
+                .contains(&"missing-test-interface".into())
+        );
+        network.download.push_back(42);
+        config.show_bytes = true;
+        network.update_config(&config, 1000);
+        assert_eq!(network.download.back(), Some(&42));
+    }
+
+    #[test]
+    fn selected_interfaces_exclude_loopback_and_unselected_virtual_traffic() {
+        let counters = [
+            ("lo", 67_200_000, 67_200_000),
+            ("eno1", 1200, 300),
+            ("tun0", 900, 200),
+        ];
+        let selected = vec!["eno1".to_owned()];
+        assert_eq!(sum_traffic(counters, Some(&selected)), (9600, 2400));
     }
 }
 
