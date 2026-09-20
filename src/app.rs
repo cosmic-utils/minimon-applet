@@ -281,7 +281,7 @@ pub enum Message {
     CpuNarrowBarSpacing(bool),
     ToggleSystemLoadChart(bool),
     ToggleSystemLoadValue(bool),
-    ToggleSystemLoadGraphColors(bool),
+    ToggleValueColors(DeviceKind, Option<String>, bool),
     ToggleSystemLoadLabel(bool),
     ToggleSystemLoadIcon(bool),
     ToggleMemoryChart(bool),
@@ -1003,8 +1003,33 @@ impl cosmic::Application for Minimon {
                 self.config.systemload.show_value(toggled);
                 self.save_config();
             }
-            Message::ToggleSystemLoadGraphColors(toggled) => {
-                self.config.systemload.use_graph_colors = toggled;
+            Message::ToggleValueColors(device, id, enabled) => {
+                match device {
+                    DeviceKind::Cpu => self.config.cpu.use_graph_colors = enabled,
+                    DeviceKind::CpuTemp => self.config.cputemp.use_graph_colors = enabled,
+                    DeviceKind::SystemLoad => self.config.systemload.use_graph_colors = enabled,
+                    DeviceKind::Memory => self.config.memory.use_graph_colors = enabled,
+                    DeviceKind::Network(variant) => {
+                        let (_, config) = network_select!(self, variant);
+                        config.use_graph_colors = enabled;
+                    }
+                    DeviceKind::Disks(variant) => {
+                        let (_, config) = disks_select!(self, variant);
+                        config.use_graph_colors = enabled;
+                    }
+                    DeviceKind::Gpu | DeviceKind::Vram | DeviceKind::GpuTemp => {
+                        if let Some(config) =
+                            id.as_ref().and_then(|id| self.config.gpus.get_mut(id))
+                        {
+                            match device {
+                                DeviceKind::Gpu => config.usage.use_graph_colors = enabled,
+                                DeviceKind::Vram => config.vram.use_graph_colors = enabled,
+                                DeviceKind::GpuTemp => config.temp.use_graph_colors = enabled,
+                                _ => unreachable!(),
+                            }
+                        }
+                    }
+                }
                 self.save_config();
             }
             Message::ToggleSystemLoadLabel(toggled) => {
@@ -1490,7 +1515,7 @@ impl Minimon {
         &'a self,
         title: impl Into<std::borrow::Cow<'a, str>> + 'a,
         subtitle: Option<String>,
-        values: Vec<String>,
+        values: Vec<Element<'a, Message>>,
         preview: Element<'a, Message>,
         sections: Vec<Element<'a, Message>>,
     ) -> SettingsColumn<'a> {
@@ -1750,7 +1775,11 @@ impl Minimon {
             return self.sensor_page(
                 *SETTINGS_CPU_CHOICE,
                 self.cpu.name(),
-                vec![self.cputemp.to_string()],
+                vec![
+                    text::body(self.cputemp.to_string())
+                        .class(self.cputemp.value_style())
+                        .into(),
+                ],
                 Minimon::chart_preview(self.cputemp.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
                 vec![self.cputemp.settings_ui()],
             );
@@ -1780,7 +1809,11 @@ impl Minimon {
         self.sensor_page(
             *SETTINGS_CPU_CHOICE,
             self.cpu.name(),
-            vec![self.cpu.to_string()],
+            vec![
+                text::body(self.cpu.to_string())
+                    .class(self.cpu.value_style())
+                    .into(),
+            ],
             preview,
             vec![self.cpu.settings_ui()],
         )
@@ -1791,12 +1824,10 @@ impl Minimon {
             .systemload
             .readings()
             .into_iter()
-            .map(|(value, color)| {
-                let mut text = cosmic::widget::text::body(format!("{value:.2}"));
-                if self.config.systemload.use_graph_colors {
-                    text = text.class(cosmic::theme::Text::Color(color));
-                }
-                text.into()
+            .map(|(value, style)| {
+                cosmic::widget::text::body(format!("{value:.2}"))
+                    .class(style)
+                    .into()
             });
         Column::new()
             .push(
@@ -1822,9 +1853,17 @@ impl Minimon {
     }
 
     fn memory_settings_page(&self) -> SettingsColumn<'_> {
-        let mut values = vec![self.memory.to_string(false)];
+        let mut values = vec![
+            text::body(self.memory.to_string(false))
+                .class(self.memory.used_value_style())
+                .into(),
+        ];
         if self.config.memory.show_allocated {
-            values.push(format!("{:.1} GB", self.memory.latest_sample_allocated()));
+            values.push(
+                text::body(format!("{:.1} GB", self.memory.latest_sample_allocated()))
+                    .class(self.memory.allocated_value_style())
+                    .into(),
+            );
         }
 
         self.sensor_page(
@@ -1849,17 +1888,29 @@ impl Minimon {
 
         let mut values = Vec::with_capacity(2);
         if combined || !upload {
-            values.push(format!(
-                "↓ {}",
-                self.network1
-                    .download_label(sample_rate_ms, network::UnitVariant::Long)
-            ));
+            values.push(
+                text::body(format!(
+                    "↓ {}",
+                    self.network1
+                        .download_label(sample_rate_ms, network::UnitVariant::Long)
+                ))
+                .class(self.network1.download_value_style())
+                .into(),
+            );
         }
         if combined || upload {
-            values.push(format!(
-                "↑ {}",
-                network.upload_label(sample_rate_ms, network::UnitVariant::Long)
-            ));
+            values.push(
+                text::body(format!(
+                    "↑ {}",
+                    network.upload_label(sample_rate_ms, network::UnitVariant::Long)
+                ))
+                .class(if combined {
+                    self.network1.upload_value_style()
+                } else {
+                    self.network2.upload_value_style()
+                })
+                .into(),
+            );
         }
 
         // The panel draws one label and one icon for the whole sensor, both read
@@ -1915,17 +1966,29 @@ impl Minimon {
 
         let mut values = Vec::with_capacity(2);
         if combined || !read {
-            values.push(format!(
-                "W {}",
-                self.disks1
-                    .write_label(sample_rate_ms, disks::UnitVariant::Long)
-            ));
+            values.push(
+                text::body(format!(
+                    "W {}",
+                    self.disks1
+                        .write_label(sample_rate_ms, disks::UnitVariant::Long)
+                ))
+                .class(self.disks1.write_value_style())
+                .into(),
+            );
         }
         if combined || read {
-            values.push(format!(
-                "R {}",
-                disk.read_label(sample_rate_ms, disks::UnitVariant::Long)
-            ));
+            values.push(
+                text::body(format!(
+                    "R {}",
+                    disk.read_label(sample_rate_ms, disks::UnitVariant::Long)
+                ))
+                .class(if combined {
+                    self.disks1.read_value_style()
+                } else {
+                    self.disks2.read_value_style()
+                })
+                .into(),
+            );
         }
 
         // The panel draws one label and one icon for the whole sensor, both read
@@ -1985,7 +2048,15 @@ impl Minimon {
         self.sensor_page(
             self.gpu_label(id),
             Some(gpu.name()),
-            vec![value],
+            vec![
+                text::body(value)
+                    .class(match self.settings_tab() {
+                        Some(SettingsTab::GpuTemp) => gpu.temp.value_style(),
+                        Some(SettingsTab::GpuVram) => gpu.vram.value_style(),
+                        _ => gpu.gpu.value_style(),
+                    })
+                    .into(),
+            ],
             preview,
             vec![section, gpu.settings_device_ui(config)],
         )
@@ -2061,6 +2132,7 @@ impl Minimon {
         if self.config.cpu.value_visible() {
             elements.push_back(
                 self.figure_value(formatted_cpu, self.value_cpu_width)
+                    .class(self.cpu.value_style())
                     .into(),
             );
         }
@@ -2110,7 +2182,11 @@ impl Minimon {
             }
 
             if self.config.cputemp.value_visible() {
-                elements.push_back(self.figure_value(self.cputemp.to_string(), None).into());
+                elements.push_back(
+                    self.figure_value(self.cputemp.to_string(), None)
+                        .class(self.cputemp.value_style())
+                        .into(),
+                );
             }
 
             if self.config.cputemp.chart_visible() {
@@ -2148,7 +2224,7 @@ impl Minimon {
 
         if self.config.systemload.value_visible() {
             let mut values = Vec::new();
-            for (index, (value, color)) in self.systemload.readings().into_iter().enumerate() {
+            for (index, (value, style)) in self.systemload.readings().into_iter().enumerate() {
                 if horizontal && index > 0 {
                     values.push(self.figure_value(" | ".to_owned(), None).into());
                 }
@@ -2162,9 +2238,7 @@ impl Minimon {
                     )
                 };
 
-                if self.config.systemload.use_graph_colors {
-                    text = text.class(cosmic::theme::Text::Color(color));
-                }
+                text = text.class(style);
                 values.push(text.into());
             }
             elements.push_back(if horizontal {
@@ -2206,7 +2280,11 @@ impl Minimon {
 
         if self.config.memory.value_visible() {
             let formatted_mem = self.memory.to_string(!horizontal);
-            elements.push_back(self.figure_value(formatted_mem, None).into());
+            elements.push_back(
+                self.figure_value(formatted_mem, None)
+                    .class(self.memory.used_value_style())
+                    .into(),
+            );
         }
 
         // Chart section
@@ -2230,7 +2308,10 @@ impl Minimon {
         let sample_rate_ms = self.config.refresh_rate;
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
-        let format_value = |text: String| self.figure_value(text, self.value_network_width);
+        let format_value = |text: String, style| {
+            self.figure_value(text, self.value_network_width)
+                .class(style)
+        };
 
         let unit_len = if horizontal {
             network::UnitVariant::Long
@@ -2259,6 +2340,7 @@ impl Minimon {
                     self.network1
                         .download_label(sample_rate_ms, unit_len)
                         .clone(),
+                    self.network1.download_value_style(),
                 )
                 .into(),
             );
@@ -2276,7 +2358,11 @@ impl Minimon {
                     ul_row.push(self.figure_value("↑".to_owned(), None).into());
                 }
                 ul_row.push(
-                    format_value(self.network1.upload_label(sample_rate_ms, unit_len)).into(),
+                    format_value(
+                        self.network1.upload_label(sample_rate_ms, unit_len),
+                        self.network1.upload_value_style(),
+                    )
+                    .into(),
                 );
 
                 network_values.push(Row::from_vec(ul_row).into());
@@ -2304,7 +2390,13 @@ impl Minimon {
             if horizontal {
                 ul_row.push(self.figure_value("↑".to_owned(), None).into());
             }
-            ul_row.push(format_value(self.network2.upload_label(sample_rate_ms, unit_len)).into());
+            ul_row.push(
+                format_value(
+                    self.network2.upload_label(sample_rate_ms, unit_len),
+                    self.network2.upload_value_style(),
+                )
+                .into(),
+            );
 
             network_values.push(Row::from_vec(ul_row).into());
 
@@ -2335,7 +2427,8 @@ impl Minimon {
         let sample_rate_ms = self.config.refresh_rate;
         let mut elements: VecDeque<Element<Message>> = VecDeque::new();
 
-        let format_value = |text: String| self.figure_value(text, self.value_disks_width);
+        let format_value =
+            |text: String, style| self.figure_value(text, self.value_disks_width).class(style);
 
         let unit_len = if horizontal {
             disks::UnitVariant::Long
@@ -2359,7 +2452,13 @@ impl Minimon {
             if horizontal {
                 wr_row.push(self.figure_value("w".to_owned(), self.value_w_width).into());
             }
-            wr_row.push(format_value(self.disks1.write_label(sample_rate_ms, unit_len)).into());
+            wr_row.push(
+                format_value(
+                    self.disks1.write_label(sample_rate_ms, unit_len),
+                    self.disks1.write_value_style(),
+                )
+                .into(),
+            );
 
             if disks_combined {
                 disks_values.push(widget::space::vertical().into());
@@ -2372,7 +2471,13 @@ impl Minimon {
                 if horizontal {
                     rd_row.push(self.figure_value("r".to_owned(), self.value_w_width).into());
                 }
-                rd_row.push(format_value(self.disks1.read_label(sample_rate_ms, unit_len)).into());
+                rd_row.push(
+                    format_value(
+                        self.disks1.read_label(sample_rate_ms, unit_len),
+                        self.disks1.read_value_style(),
+                    )
+                    .into(),
+                );
 
                 disks_values.push(Row::from_vec(rd_row).spacing(0).padding(0).into());
                 disks_values.push(widget::space::vertical().into());
@@ -2398,7 +2503,13 @@ impl Minimon {
             if horizontal {
                 rd_row.push(self.figure_value("r".to_owned(), self.value_w_width).into());
             }
-            rd_row.push(format_value(self.disks2.read_label(sample_rate_ms, unit_len)).into());
+            rd_row.push(
+                format_value(
+                    self.disks2.read_label(sample_rate_ms, unit_len),
+                    self.disks2.read_value_style(),
+                )
+                .into(),
+            );
             disks_values.push(Row::from_vec(rd_row).spacing(0).padding(0).into());
 
             elements.push_back(Column::from_vec(disks_values).into());
@@ -2451,14 +2562,18 @@ impl Minimon {
                 let gpu_values = vec![
                     widget::space::vertical().into(),
                     self.figure_value(formatted_gpu, self.value_gpu_width)
+                        .class(gpu.gpu.value_style())
                         .into(),
-                    self.figure_value(formatted_vram.clone(), None).into(),
+                    self.figure_value(formatted_vram.clone(), None)
+                        .class(gpu.vram.value_style())
+                        .into(),
                     widget::space::vertical().into(),
                 ];
                 elements.push_back(Column::from_vec(gpu_values).into());
             } else if config.usage.value_visible() {
                 elements.push_back(
                     self.figure_value(formatted_gpu, self.value_gpu_width)
+                        .class(gpu.gpu.value_style())
                         .into(),
                 );
             }
@@ -2467,7 +2582,11 @@ impl Minimon {
                 elements.push_back(gpu.gpu.chart().height(size.0).width(size.1).into());
             }
             if config.temp.value_visible() {
-                elements.push_back(self.figure_value(gpu.temp.to_string(), None).into());
+                elements.push_back(
+                    self.figure_value(gpu.temp.to_string(), None)
+                        .class(gpu.temp.value_style())
+                        .into(),
+                );
             }
 
             if config.temp.chart_visible() {
@@ -2475,7 +2594,11 @@ impl Minimon {
             }
 
             if config.vram.value_visible() && !stacked_values {
-                elements.push_back(self.figure_value(formatted_vram, None).into());
+                elements.push_back(
+                    self.figure_value(formatted_vram, None)
+                        .class(gpu.vram.value_style())
+                        .into(),
+                );
             }
 
             if config.vram.chart_visible() {

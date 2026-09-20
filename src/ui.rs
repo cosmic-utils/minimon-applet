@@ -68,13 +68,10 @@ pub fn control_row<'a>(
 /// preview of the chart as it is drawn on the panel.
 pub fn sensor_header<'a>(
     title: impl Into<Cow<'a, str>> + 'a,
-    values: impl IntoIterator<Item = String>,
+    values: impl IntoIterator<Item = Element<'a, Message>>,
     preview: Element<'a, Message>,
 ) -> Element<'a, Message> {
-    let values = values
-        .into_iter()
-        .map(|value| text::body(value).into())
-        .collect::<Vec<_>>();
+    let values = values.into_iter().collect::<Vec<_>>();
 
     widget::row::with_capacity(4)
         .push(text::title3(title).wrapping(Wrapping::Word))
@@ -103,6 +100,18 @@ pub fn readings_sensor_header<'a>(
         .align_y(Alignment::Center)
         .spacing(cosmic::theme::spacing().space_s)
         .into()
+}
+
+pub fn value_colors_row<'a>(
+    enabled: bool,
+    device: crate::config::DeviceKind,
+    id: Option<String>,
+) -> list::ListButton<'a, Message> {
+    settings::item::builder(fl!("use-graph-colors"))
+        .description(fl!("use-graph-colors-description"))
+        .toggler(enabled, move |value| {
+            Message::ToggleValueColors(device, id.clone(), value)
+        })
 }
 
 /// A list row holding a title and a `go-next` chevron, used to navigate into a

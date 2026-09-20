@@ -512,17 +512,40 @@ pub fn line_adaptive(
     svg
 }
 
+const HEAT_SIZE: f64 = 42.0;
+const HEAT_BASELINE: f64 = HEAT_SIZE - 1.0;
+const HEAT_HEIGHT: f64 = HEAT_SIZE - 2.0;
+const HEAT_END_PERCENT: f64 = 90.0;
+const HEAT_LOW: [u8; 3] = [255, 165, 0];
+const HEAT_HIGH: [u8; 3] = [255, 0, 0];
+
+fn heat_y(value: f64, maximum: f64) -> f64 {
+    (HEAT_BASELINE - HEAT_HEIGHT * value / maximum.max(1.0))
+        .round()
+        .max(0.0)
+}
+
+/// Color at the latest reading's height in the heat chart's gradient.
+pub fn heat_value_color(value: f64, max_y: f64) -> Srgba<u8> {
+    let position = ((HEAT_SIZE - heat_y(value, max_y)) / (HEAT_SIZE * HEAT_END_PERCENT / 100.0))
+        .clamp(0.0, 1.0);
+    let [red, green, blue] = std::array::from_fn(|i| {
+        (f64::from(HEAT_LOW[i]) + (f64::from(HEAT_HIGH[i]) - f64::from(HEAT_LOW[i])) * position)
+            .round() as u8
+    });
+    Srgba::new(red, green, blue, 255)
+}
+
 pub fn heat(samples: &VecDeque<f64>, max_y: u64, colors: &SvgColors) -> String {
     // Generate list of coordinates for line
 
-    let scaling: f32 = 40.0 / max_y as f32;
     let est_len = samples.len() * 10; // Rough estimate: each pair + separator
 
     let indexed_string = samples.iter().enumerate().fold(
         String::with_capacity(est_len),
         |mut acc, (index, &value)| {
             let x = ((index * 2) + 1) as u32;
-            let y = (41.0 - (scaling * value as f32)).round() as u32;
+            let y = heat_y(value, max_y as f64) as u32;
             if index > 0 {
                 acc.push(' ');
             }
@@ -532,7 +555,7 @@ pub fn heat(samples: &VecDeque<f64>, max_y: u64, colors: &SvgColors) -> String {
     );
 
     let mut svg = String::with_capacity(LINE_LEN);
-    svg.push_str(HEATSVG_1);
+    svg.push_str(&HEATSVG_1);
     svg.push_str(&colors.background);
     svg.push_str(HEATSVG_2);
     svg.push_str(&colors.frame);
@@ -545,18 +568,24 @@ pub fn heat(samples: &VecDeque<f64>, max_y: u64, colors: &SvgColors) -> String {
     svg
 }
 
-const HEATSVG_1: &str = r#"<svg width="42" height="42" viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg">
+static HEATSVG_1: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    let low = format!("rgb({},{},{})", HEAT_LOW[0], HEAT_LOW[1], HEAT_LOW[2]);
+    let high = format!("rgb({},{},{})", HEAT_HIGH[0], HEAT_HIGH[1], HEAT_HIGH[2]);
+    format!(
+        r#"<svg width="42" height="42" viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg">
   <defs>
-  <linearGradient id="temp-gradient" x1="0" y1="42" x2="0" y2="0" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="orange"/>
-      <stop offset="90%" stop-color="red"/>
+  <linearGradient id="temp-gradient" x1="0" y1="{HEAT_SIZE}" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="{low}"/>
+      <stop offset="{HEAT_END_PERCENT}%" stop-color="{high}"/>
     </linearGradient>
     <clipPath id="rounded-clip">
       <rect x="0" y="0" width="42" height="42" rx="7" ry="7"/>
     </clipPath>
   </defs>
   <g clip-path="url(#rounded-clip)">
-    <rect x="0" y="0" rx="7" ry="7" width="42" height="42" fill=""#; // background color placeholder
+    <rect x="0" y="0" rx="7" ry="7" width="42" height="42" fill=""#
+    )
+}); // background color placeholder
 
 const HEATSVG_2: &str = r#"" stroke=""#; // frame color placeholder
 const HEATSVG_3: &str = r#""/><polygon fill="url(#temp-gradient)" points=""#;
@@ -670,6 +699,18 @@ const DBLLINESVG_LEN: usize = 1000; // For preallocation
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn heat_value_follows_gradient_instead_of_configured_line_color() {
+        let low = heat_value_color(0.0, 100.0);
+        let middle = heat_value_color(50.0, 100.0);
+        let high = heat_value_color(100.0, 100.0);
+        assert_eq!((low.red, low.blue, low.alpha), (255, 0, 255));
+        assert!(low.green > middle.green);
+        assert!(middle.green > high.green);
+        assert_eq!(high, Srgba::new(255, 0, 0, 255));
+        assert_eq!(heat_value_color(200.0, 100.0), high);
+    }
 
     #[test]
     fn threshold_stays_visible_and_is_drawn_above_curves() {

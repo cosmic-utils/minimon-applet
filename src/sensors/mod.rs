@@ -1,3 +1,4 @@
+mod temperature_history;
 use cosmic::{Element, Renderer, Theme};
 use cosmic::{iced::Length, widget::Container};
 use serde::{Deserialize, Serialize};
@@ -147,31 +148,113 @@ where
     Container::new(icon.icon().height(Length::Fill).width(Length::Fill))
 }
 
-fn normalize_temps_dynamic(samples: &VecDeque<f64>, floor: f64) -> VecDeque<f64> {
-    // Find the maximum value in the samples; if empty, just return empty.
-    let Some(&max_sample) = samples.iter().max_by(|a, b| a.partial_cmp(b).unwrap()) else {
-        return VecDeque::new();
-    };
+/// Resolve the temperature style from the same cached samples as its chart.
+fn temperature_value_style(
+    enabled: bool,
+    kind: crate::config::ChartKind,
+    line_style: cosmic::theme::Text,
+    samples: &VecDeque<f64>,
+    maximum: f64,
+) -> cosmic::theme::Text {
+    if enabled && kind == crate::config::ChartKind::Heat {
+        let value = *samples.back().unwrap_or(&0.0);
+        crate::config::value_style(true, crate::svg_graph::heat_value_color(value, maximum))
+    } else {
+        line_style
+    }
+}
 
-    // Effective ceiling is the max of floor, the max_sample and 100.0.
-    let ceiling = max_sample.max(floor).max(100.0);
+#[cfg(test)]
+mod value_style_tests {
+    use super::*;
+    use crate::config::{ChartKind, ColorVariant, DisksConfig, MemoryConfig, NetworkConfig};
 
-    // If ceiling == floor, everything is at or below the floor -> all zeros.
-    if ceiling <= floor {
-        return samples.iter().map(|_| 0.0).collect();
+    fn color(style: cosmic::theme::Text) -> cosmic::iced::Color {
+        match style {
+            cosmic::theme::Text::Color(color) => color,
+            _ => panic!("expected graph color"),
+        }
     }
 
-    let range = ceiling - floor;
+    #[test]
+    fn readings_resolve_their_own_series_for_every_chart_kind() {
+        for kind in [ChartKind::Ring, ChartKind::Line] {
+            let mut config = MemoryConfig::default();
+            config.chart = kind;
+            config.use_graph_colors = true;
+            let mut sensor = memory::Memory::default();
+            sensor.update_config(&config, 1000);
+            assert_eq!(
+                color(sensor.used_value_style()),
+                color(config.value_style(ColorVariant::Graph1))
+            );
+            assert_eq!(
+                color(sensor.allocated_value_style()),
+                color(config.value_style(ColorVariant::Graph3))
+            );
+        }
+        let mut config = NetworkConfig::default();
+        config.use_graph_colors = true;
+        let mut sensor = network::Network::default();
+        sensor.update_config(&config, 1000);
+        assert_eq!(
+            color(sensor.download_value_style()),
+            color(config.value_style(ColorVariant::Graph1))
+        );
+        assert_eq!(
+            color(sensor.upload_value_style()),
+            color(config.value_style(ColorVariant::Graph2))
+        );
+        let mut config = DisksConfig::default();
+        config.use_graph_colors = true;
+        let mut sensor = disks::Disks::default();
+        sensor.update_config(&config, 1000);
+        assert_eq!(
+            color(sensor.write_value_style()),
+            color(config.value_style(ColorVariant::Graph1))
+        );
+        assert_eq!(
+            color(sensor.read_value_style()),
+            color(config.value_style(ColorVariant::Graph2))
+        );
+    }
 
-    samples
-        .iter()
-        .map(|&x| {
-            if x <= floor {
-                0.0
-            } else {
-                // Scale floor..=ceiling -> 0.0..=100.0
-                ((x - floor) / range) * 100.0
-            }
-        })
-        .collect()
+    #[test]
+    fn temperature_styles_use_cached_samples_and_respect_disabled_colors() {
+        let samples = VecDeque::from([0.0, 50.0]);
+        let line = cosmic::theme::Text::Color(cosmic::iced::Color::from_rgb8(1, 2, 3));
+        assert_eq!(
+            color(temperature_value_style(
+                true,
+                ChartKind::Line,
+                line,
+                &samples,
+                100.0
+            )),
+            color(line)
+        );
+        assert_eq!(
+            color(temperature_value_style(
+                true,
+                ChartKind::Heat,
+                line,
+                &samples,
+                100.0
+            )),
+            color(crate::config::value_style(
+                true,
+                crate::svg_graph::heat_value_color(50.0, 100.0)
+            ))
+        );
+        assert!(matches!(
+            temperature_value_style(
+                false,
+                ChartKind::Heat,
+                cosmic::theme::Text::Default,
+                &samples,
+                100.0
+            ),
+            cosmic::theme::Text::Default
+        ));
+    }
 }

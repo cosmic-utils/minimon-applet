@@ -274,6 +274,11 @@ impl Sensor for Network {
                         Message::ToggleNetValue(variant, t)
                     }),
             )
+            .add(crate::ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::Network(variant),
+                None,
+            ))
             .add(
                 settings::item::builder(fl!("use-adaptive")).toggler(config.adaptive, move |t| {
                     Message::ToggleAdaptiveNet(variant, t)
@@ -367,6 +372,14 @@ impl Network {
             }
         }
         section.into()
+    }
+
+    pub fn download_value_style(&self) -> cosmic::theme::Text {
+        self.config.value_style(ColorVariant::Graph1)
+    }
+
+    pub fn upload_value_style(&self) -> cosmic::theme::Text {
+        self.config.value_style(ColorVariant::Graph2)
     }
 
     fn makestr(val: u64, format: UnitVariant, show_bytes: bool) -> String {

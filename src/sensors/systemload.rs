@@ -70,14 +70,13 @@ impl SystemLoad {
     }
 
     /// Keep the value and graph color paired in the same 1/5/15-minute order.
-    pub fn readings(&self) -> [(f64, cosmic::iced::Color); 3] {
-        let colors = self.config.colors();
+    pub fn readings(&self) -> [(f64, cosmic::theme::Text); 3] {
         [
-            (self.average.one, colors.graph1),
-            (self.average.five, colors.graph2),
-            (self.average.fifteen, colors.graph3),
+            (self.average.one, ColorVariant::Graph1),
+            (self.average.five, ColorVariant::Graph2),
+            (self.average.fifteen, ColorVariant::Graph3),
         ]
-        .map(|(value, color)| (value, cosmic::iced::Color::from(color)))
+        .map(|(value, series)| (value, self.config.value_style(series)))
     }
 
     pub fn capacity(&self) -> usize {
@@ -154,14 +153,11 @@ impl Sensor for SystemLoad {
                 settings::item::builder(fl!("enable-value"))
                     .toggler(self.config.value_visible(), Message::ToggleSystemLoadValue),
             )
-            .add(
-                settings::item::builder(fl!("use-graph-colors"))
-                    .description(fl!("use-graph-colors-description"))
-                    .toggler(
-                        self.config.use_graph_colors,
-                        Message::ToggleSystemLoadGraphColors,
-                    ),
-            )
+            .add(crate::ui::value_colors_row(
+                self.config.use_graph_colors,
+                DeviceKind::SystemLoad,
+                None,
+            ))
             .add(
                 settings::item::builder(fl!("enable-label"))
                     .toggler(self.config.label_visible(), Message::ToggleSystemLoadLabel),
@@ -277,10 +273,15 @@ mod tests {
         for (samples, expected) in sensor.samples.iter().zip([2.0, 16.0, 8.0]) {
             assert!(samples.iter().all(|value| *value == expected));
         }
+        sensor.config.use_graph_colors = true;
         let readings = sensor.readings();
         assert_eq!(readings.map(|(value, _)| value), [2.0, 16.0, 8.0]);
-        assert_ne!(readings[0].1, readings[1].1);
-        assert_ne!(readings[1].1, readings[2].1);
-        assert_ne!(readings[0].1, readings[2].1);
+        let colors = readings.map(|(_, style)| match style {
+            cosmic::theme::Text::Color(color) => color,
+            _ => panic!("expected graph colors"),
+        });
+        assert_ne!(colors[0], colors[1]);
+        assert_ne!(colors[1], colors[2]);
+        assert_ne!(colors[0], colors[2]);
     }
 }
