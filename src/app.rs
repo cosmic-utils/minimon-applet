@@ -217,6 +217,7 @@ pub struct Minimon {
     value_disks_width: Option<f32>,
     value_w_width: Option<f32>,
     value_systemload_width: Option<f32>,
+    value_temp_width: Option<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -377,6 +378,7 @@ impl cosmic::Application for Minimon {
             value_disks_width: None,
             value_w_width: None,
             value_systemload_width: None,
+            value_temp_width: None, // Assuming CPU and all GPUs use same unit
         };
 
         let config: MinimonConfig =
@@ -2183,7 +2185,7 @@ impl Minimon {
 
             if self.config.cputemp.value_visible() {
                 elements.push_back(
-                    self.figure_value(self.cputemp.to_string(), None)
+                    self.figure_value(self.cputemp.to_string(), self.value_temp_width)
                         .class(self.cputemp.value_style())
                         .into(),
                 );
@@ -2583,7 +2585,7 @@ impl Minimon {
             }
             if config.temp.value_visible() {
                 elements.push_back(
-                    self.figure_value(gpu.temp.to_string(), None)
+                    self.figure_value(gpu.temp.to_string(), self.value_temp_width)
                         .class(gpu.temp.value_style())
                         .into(),
                 );
@@ -2951,7 +2953,20 @@ impl Minimon {
             let is_horizontal = self.core.applet.is_horizontal();
 
             self.value_cpu_width = self.measure_text_width("8.88%", &attrs);
+
+            self.value_temp_width = if self.cputemp.unit() == TempUnit::Kelvin {
+                self.measure_text_width("188K", &attrs)
+            } else {
+                self.measure_text_width("188°C", &attrs)
+            };
+
             self.value_gpu_width = self.value_cpu_width;
+
+            self.value_temp_width = if self.cputemp.unit() == TempUnit::Kelvin {
+                self.measure_text_width("188K", &attrs)
+            } else {
+                self.measure_text_width("188°C", &attrs)
+            };
 
             self.value_network_width = match (self.config.network1.show_bytes, is_horizontal) {
                 (false, false) => self.measure_text_width("8.88M", &attrs),

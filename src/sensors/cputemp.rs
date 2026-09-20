@@ -403,6 +403,10 @@ impl CpuTemp {
         self.hwmon_temp.is_some()
     }
 
+    pub fn unit(&self) -> TempUnit {
+        self.config.unit
+    }
+
     pub fn value_style(&self) -> cosmic::theme::Text {
         super::temperature_value_style(
             self.config.use_graph_colors,
