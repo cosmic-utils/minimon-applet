@@ -138,7 +138,20 @@ pub struct GpuGraph {
     config: GpuUsageConfig,
 }
 
+/// Unavailable readings use the theme's placeholder text instead of active colors.
+fn available_value_style(disabled: bool, style: cosmic::theme::Text) -> cosmic::theme::Text {
+    if disabled {
+        cosmic::theme::Text::Default
+    } else {
+        style
+    }
+}
+
 impl GpuGraph {
+    pub fn value_style(&self) -> cosmic::theme::Text {
+        available_value_style(self.disabled, self.config.value_style(ColorVariant::Graph1))
+    }
+
     fn new(id: &str) -> Self {
         let mut percentage = String::with_capacity(6);
         percentage.push('0');
@@ -354,6 +367,10 @@ pub struct VramGraph {
 }
 
 impl VramGraph {
+    pub fn value_style(&self) -> cosmic::theme::Text {
+        available_value_style(self.disabled, self.config.value_style(ColorVariant::Graph1))
+    }
+
     // id: a unique id, total: RAM size in GB
     fn new(id: &str, total: f64) -> Self {
         VramGraph {
@@ -514,7 +531,7 @@ impl VramGraph {
 
 pub struct TempGraph {
     id: String,
-    samples: BoundedVecDeque<f64>,
+    samples: super::temperature_history::TemperatureHistory,
     unit_options: Vec<&'static str>,
     graph_options: Vec<&'static str>,
     max_temp: f64,
@@ -529,7 +546,7 @@ impl TempGraph {
     fn new(id: &str) -> Self {
         TempGraph {
             id: id.to_owned(),
-            samples: BoundedVecDeque::from_iter(std::iter::repeat_n(0.0, MAX_SAMPLES), MAX_SAMPLES),
+            samples: super::temperature_history::TemperatureHistory::new(MAX_SAMPLES),
             unit_options: super::UNIT_OPTIONS.to_vec(),
             graph_options: super::GRAPH_OPTIONS_RING_LINE_HEAT.to_vec(),
             max_temp: 100.0,
@@ -549,15 +566,14 @@ impl TempGraph {
 
     fn update_config(&mut self, config: &dyn Any, _refresh_rate: u32) {
         if let Some(cfg) = config.downcast_ref::<GpuTempConfig>() {
+            self.samples.set_floor(cfg.min_temp);
             self.config = cfg.clone();
             self.svg_colors = SvgColors::new(cfg.colors());
         }
     }
 
     pub fn clear(&mut self) {
-        for sample in &mut self.samples {
-            *sample = 0.0;
-        }
+        self.samples.clear();
     }
 
     #[cfg(feature = "lyon_charts")]
@@ -593,7 +609,7 @@ impl TempGraph {
             }
             ChartKind::Line => chart_container!(crate::charts::line::LineChart::new(
                 MAX_SAMPLES,
-                &self.samples,
+                self.samples.raw(),
                 &VecDeque::new(),
                 Some(self.max_temp),
                 if self.disabled {
@@ -604,7 +620,7 @@ impl TempGraph {
             )),
             ChartKind::Heat => chart_container!(crate::charts::heat::HeatChart::new(
                 MAX_SAMPLES,
-                &self.samples,
+                self.samples.raw(),
                 Some(self.max_temp),
                 if self.disabled {
                     &*DISABLED_COLORS
@@ -641,22 +657,10 @@ impl TempGraph {
                 crate::svg_graph::ring(&value, percentage, None, colors)
             }
             ChartKind::Line => {
-                if self.config.min_temp == 0.0 {
-                    crate::svg_graph::line(&self.samples, self.max_temp, colors)
-                } else {
-                    let normalized =
-                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
-                    crate::svg_graph::line(&normalized, self.max_temp, colors)
-                }
+                crate::svg_graph::line(self.samples.chart_samples(), self.max_temp, colors)
             }
             ChartKind::Heat => {
-                if self.config.min_temp == 0.0 {
-                    crate::svg_graph::heat(&self.samples, self.max_temp as u64, colors)
-                } else {
-                    let normalized =
-                        super::normalize_temps_dynamic(&self.samples, self.config.min_temp);
-                    crate::svg_graph::heat(&normalized, self.max_temp as u64, colors)
-                }
+                crate::svg_graph::heat(self.samples.chart_samples(), self.max_temp as u64, colors)
             }
             ChartKind::StackedBars => {
                 log::error!("StackedBars not supported for GpuTemp");
@@ -666,8 +670,21 @@ impl TempGraph {
         super::svg_icon_container::<Message>(svg)
     }
 
+    pub fn value_style(&self) -> cosmic::theme::Text {
+        available_value_style(
+            self.disabled,
+            super::temperature_value_style(
+                self.config.use_graph_colors,
+                self.config.chart,
+                self.config.value_style(ColorVariant::Graph1),
+                self.samples.chart_samples(),
+                self.max_temp,
+            ),
+        )
+    }
+
     pub fn latest_sample(&self) -> f64 {
-        *self.samples.back().unwrap_or(&0f64)
+        *self.samples.raw().back().unwrap_or(&0f64)
     }
 
     pub fn graph_kind(&self) -> crate::config::ChartKind {
@@ -950,6 +967,11 @@ impl Gpu {
                         Message::GpuToggleValue(value_id.clone(), DeviceKind::Gpu, value)
                     }),
             )
+            .add(ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::Gpu,
+                Some(self.id()),
+            ))
             .add(ui::chart_type_row(
                 &self.gpu.graph_options,
                 Some(kind.into()),
@@ -985,6 +1007,11 @@ impl Gpu {
                         Message::GpuToggleValue(value_id.clone(), DeviceKind::Vram, value)
                     }),
             )
+            .add(ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::Vram,
+                Some(self.id()),
+            ))
             .add(ui::chart_type_row(
                 &self.vram.graph_options,
                 Some(kind.into()),
@@ -1028,6 +1055,11 @@ impl Gpu {
                     },
                 ),
             )
+            .add(ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::GpuTemp,
+                Some(self.id()),
+            ))
             .add(ui::temperature_unit_row(
                 &self.temp.unit_options,
                 Some(config.unit.into()),
@@ -1127,3 +1159,72 @@ const HEAT_DEMO_SAMPLES: [f64; 21] = [
     41.0, 42.0, 43.5, 45.0, 48.0, 51.0, 55.0, 57.0, 59.5, 62.0, 64.0, 67.0, 70.0, 74.0, 78.0, 83.0,
     87.0, 90.0, 95.0, 98.0, 100.0,
 ];
+
+#[cfg(test)]
+mod value_style_tests {
+    use super::*;
+
+    fn rgb(style: cosmic::theme::Text) -> cosmic::iced::Color {
+        match style {
+            cosmic::theme::Text::Color(color) => color,
+            _ => panic!("expected active color"),
+        }
+    }
+
+    #[test]
+    fn temperature_cache_updates_on_samples_configuration_and_pause() {
+        let mut graph = TempGraph::new("test");
+        graph.update(75_000);
+        let mut config = GpuTempConfig::default();
+        config.min_temp = 50.0;
+        graph.update_config(&config, 1000);
+        assert_eq!(graph.latest_sample(), 75.0);
+        assert_eq!(graph.samples.chart_samples().back(), Some(&50.0));
+        graph.update(150_000);
+        assert_eq!(graph.samples.chart_samples().back(), Some(&100.0));
+        config.min_temp = 0.0;
+        graph.update_config(&config, 1000);
+        assert_eq!(graph.samples.chart_samples(), graph.samples.raw());
+        graph.clear();
+        assert!(graph.samples.raw().iter().all(|value| *value == 0.0));
+        assert!(
+            graph
+                .samples
+                .chart_samples()
+                .iter()
+                .all(|value| *value == 0.0)
+        );
+        graph.update(60_000);
+        assert_eq!(graph.samples.chart_samples().back(), Some(&60.0));
+    }
+
+    #[test]
+    fn unavailable_gpu_readings_use_default_style_and_recover_after_resume() {
+        let mut usage = GpuGraph::new("test");
+        let mut vram = VramGraph::new("test", 8.0);
+        let mut temp = TempGraph::new("test");
+        for kind in [ChartKind::Ring, ChartKind::Line, ChartKind::Heat] {
+            temp.config.chart = kind;
+            // The same disabled flags are set by Gpu::stop and cleared on resume.
+            macro_rules! check {
+                ($graph:ident) => {{
+                    $graph.config.use_graph_colors = true;
+                    let active = rgb($graph.value_style());
+                    $graph.disabled = true;
+                    assert!(matches!($graph.value_style(), cosmic::theme::Text::Default));
+                    $graph.disabled = false;
+                    assert_eq!(rgb($graph.value_style()), active);
+                    $graph.config.use_graph_colors = false;
+                    for disabled in [false, true] {
+                        $graph.disabled = disabled;
+                        assert!(matches!($graph.value_style(), cosmic::theme::Text::Default));
+                    }
+                    $graph.disabled = false;
+                }};
+            }
+            check!(usage);
+            check!(vram);
+            check!(temp);
+        }
+    }
+}

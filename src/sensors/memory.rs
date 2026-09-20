@@ -285,6 +285,11 @@ impl Sensor for Memory {
                 settings::item::builder(fl!("enable-value"))
                     .toggler(config.value_visible(), Message::ToggleMemoryValue),
             )
+            .add(crate::ui::value_colors_row(
+                config.use_graph_colors,
+                DeviceKind::Memory,
+                None,
+            ))
             .add(
                 settings::item::builder(fl!("enable-label"))
                     .toggler(config.label_visible(), Message::ToggleMemoryLabel),
@@ -350,6 +355,14 @@ impl Default for Memory {
 }
 
 impl Memory {
+    pub fn used_value_style(&self) -> cosmic::theme::Text {
+        self.config.value_style(ColorVariant::Graph1)
+    }
+
+    pub fn allocated_value_style(&self) -> cosmic::theme::Text {
+        self.config.value_style(ColorVariant::Graph3)
+    }
+
     pub fn latest_sample(&self) -> f64 {
         *self.samples_used.back().unwrap_or(&0f64)
     }
