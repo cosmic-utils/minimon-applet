@@ -1716,7 +1716,10 @@ impl Minimon {
             None,
             values,
             Minimon::chart_preview(self.memory.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
-            vec![self.memory.settings_ui()],
+            vec![
+                self.memory.settings_ui(),
+                widget::text::caption(fl!("allocated-explanation")).into(),
+            ],
         )
     }
 
