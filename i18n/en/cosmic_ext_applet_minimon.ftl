@@ -83,7 +83,7 @@ graph-memory-allocated = Allocated.
 graph-ring-unused = Unused.
 graph-cpu-load = Load.
 graph-cpu-idle = Idle.
-allocated-explanation = Allocated = total minus free. Includes system cache and buffers, which improve performance and are resized/released as needed.
+allocated-explanation = Allocated shows total minus free. Includes system cache and buffers, which improve performance and are resized/released as needed.
 settings-launch = Launch { $name }
 settings-about = About
 links-main = Repository
