@@ -12,5 +12,6 @@ Keywords[ar]=نظام;معالج;معالج الرسوميات;ذاكرة;شبك
 Keywords[cs]=Monitorování;Systém;CPU;GPU;Paměť;Síť;Disk;
 Keywords[hu]=Rendszer;CPU;GPU;Memória;Hálózat;Lemez;
 Keywords[pl]=Monitorowanie;CPU;GPU;Pamięć;Sieć;Dyski;
+Keywords[uk]=Монітор;Система;Процесор;CPU;GPU;Пам’ять;Мережа;Диск;
 X-CosmicApplet=true
 X-CosmicHoverPopup=Auto
