@@ -275,13 +275,6 @@ impl Sensor for Memory {
                     .toggler(config.chart_visible(), Message::ToggleMemoryChart),
             )
             .add(
-                settings::item::builder(fl!("memory-show-allocated"))
-                    .description(fl!("allocated-explanation"))
-                    .control(
-                        toggler(config.show_allocated).on_toggle(Message::ToggleMemoryAllocated),
-                    ),
-            )
-            .add(
                 settings::item::builder(fl!("enable-value"))
                     .toggler(config.value_visible(), Message::ToggleMemoryValue),
             )
@@ -301,6 +294,10 @@ impl Sensor for Memory {
             .add(
                 settings::item::builder(fl!("memory-as-percentage"))
                     .toggler(config.percentage, Message::ToggleMemoryPercentage),
+            )
+            .add(
+                settings::item::builder(fl!("memory-show-allocated"))
+                    .toggler(config.show_allocated, Message::ToggleMemoryAllocated),
             )
             .add(ui::chart_type_row(
                 &self.graph_options,
