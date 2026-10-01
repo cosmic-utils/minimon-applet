@@ -105,6 +105,7 @@ pub trait Sensor {
 pub mod cpu;
 pub mod cputemp;
 pub mod disks;
+pub mod fan;
 pub mod gpu;
 pub mod gpus;
 pub mod memory;

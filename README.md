@@ -4,6 +4,7 @@ A configurable applet for displaying the following:
 * CPU load
 * System load averages (1, 5 and 15 minutes)
 * CPU temperature
+* Fan speed
 * Memory usage
 * Network utilization
 * Disk activity

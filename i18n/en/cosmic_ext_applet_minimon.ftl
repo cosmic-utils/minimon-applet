@@ -116,3 +116,6 @@ net-all-interfaces = Monitor all network interfaces
 net-interfaces-description = Includes loopback, VPN and virtual interfaces. Turn off to choose interfaces for both download and upload.
 net-no-interfaces = No interfaces selected. Network traffic will be zero.
 net-interfaces = Network interfaces
+sensor-fan = Fan
+label-fan = FAN
+fan-description = Shows the fastest fan. Fans found:
