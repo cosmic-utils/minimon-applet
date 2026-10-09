@@ -9,7 +9,7 @@ use crate::{
     svg_graph::SvgColors,
 };
 
-use cosmic::widget::{settings, toggler};
+use cosmic::widget::settings;
 use std::any::Any;
 
 use crate::app::Message;

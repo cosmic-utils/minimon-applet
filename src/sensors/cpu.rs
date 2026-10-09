@@ -581,7 +581,7 @@ impl fmt::Display for Cpu {
         } else if current_val < 100.0 {
             write!(f, "{current_val:.1}%")
         } else {
-            write!(f, "{current_val}%")
+            write!(f, "100%")
         }
     }
 }
