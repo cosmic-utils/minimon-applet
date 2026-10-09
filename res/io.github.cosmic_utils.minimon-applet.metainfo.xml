@@ -9,6 +9,7 @@
     <developer id="io.github.cosmic_utils">
       <name>hyperchaotic</name>
     </developer>
+    <developer_name>Hyperchaotic</developer_name>    
     <url type="homepage">https://github.com/cosmic-utils/minimon-applet</url>
 	<url
         type="bugtracker"
@@ -142,7 +143,25 @@
 		<category>Utility</category>
 	</categories>
 	<releases>
-		<release version="1.2.0" date="2026-08-21">
+		<release version="1.3.0" date="2026-10-09">
+			<url
+                type="details"
+            >https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.3.0</url>
+			<description>
+				<p>What's new:</p>
+				<ul>
+				    <li>A new sensor for system load monitoring (1-, 5-, and 15-minute load averages) have been introduced.</li>
+                    <li>The Network configuration now supports interface selection.</li>
+                    <li>The color of text values in the panel can now be changed to match the charts.</li>
+                    <li>Ukrainian translation.</li>
+                    <li>The text value for temperature have been given a fixed width to prevent panel wobble.</li>
+                    <li>Align memory settings UI consistency with other pages.</li>
+                    <li>Fix floating point issue where CPU could show above 100%.</li>
+                    <li>Fix floating point issue where GPU could show above 100%.</li>
+				</ul>
+			</description>
+		</release>
+				<release version="1.2.0" date="2026-08-21">
 			<url
                 type="details"
             >https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.2.0</url>
@@ -165,36 +184,6 @@
 				<ul>
                     <li>Fix bar chart frame overflowing borders.</li>
                     <li>Make COSMIC System Monitor default on new installs.</li>
-				</ul>
-			</description>
-		</release>
-
-		<release version="1.1.1" date="2026-06-02">
-			<url
-                type="details"
-            >https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.1.1</url>
-			<description>
-				<p>What's new:</p>
-				<ul>
-                    <li>Add retry mechanism for connecting to NVML as first attempt may fail in Flatpak.</li>
-                    <li>Default symbolic icons to false.</li>
-                    <li>Change name of binary to cosmic-ext-applet-minimon.</li>
-                    <li>Update libcosmic.</li>
-				</ul>
-			</description>
-		</release>
-		<release version="1.1.0" date="2026-05-06">
-			<url
-                type="details"
-            >https://github.com/cosmic-utils/minimon-applet/releases/tag/v1.1.0</url>
-			<description>
-				<p>What's new:</p>
-				<ul>
-					<li
-                    >Make configuration more robust to changes, so it doesn't reset to default so often.</li>
-					<li>Update to latest libcosmic and Iced 0.14.</li>
-					<li>Add per-sensor icon toggle.</li>
-					<li>Add per-sensor text label option.</li>
 				</ul>
 			</description>
 		</release>
