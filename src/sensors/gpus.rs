@@ -302,7 +302,7 @@ impl fmt::Display for GpuGraph {
             } else if current_val < 100.0 {
                 write!(f, "{:.1}%", (current_val * 10.0).trunc() / 10.0)
             } else {
-                write!(f, "{current_val}%")
+                write!(f, "100%")
             }
         }
     }
