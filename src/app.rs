@@ -41,6 +41,7 @@ use crate::config::{
 use crate::sensors::cpu::Cpu;
 use crate::sensors::cputemp::CpuTemp;
 use crate::sensors::disks::{self, Disks};
+use crate::sensors::fan::Fan;
 use crate::sensors::gpu::GpuType;
 use crate::sensors::gpus::{Gpu, Gpus};
 use crate::sensors::memory::Memory;
@@ -61,6 +62,7 @@ const ICON: &str = "io.github.cosmic_utils.minimon-applet";
 const SYSTEMLOAD_ICON: &str = "io.github.cosmic_utils.minimon-applet-systemload";
 const CPU_ICON: &str = "io.github.cosmic_utils.minimon-applet-cpu";
 const TEMP_ICON: &str = "io.github.cosmic_utils.minimon-applet-temperature";
+const FAN_ICON: &str = "io.github.cosmic_utils.minimon-applet-fan";
 const RAM_ICON: &str = "io.github.cosmic_utils.minimon-applet-ram";
 const GPU_ICON: &str = "io.github.cosmic_utils.minimon-applet-gpu";
 const NETWORK_ICON: &str = "io.github.cosmic_utils.minimon-applet-network";
@@ -78,6 +80,7 @@ pub static SETTINGS_CPU_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-cpu").leak());
 pub static SETTINGS_SYSTEM_LOAD_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("sensor-system-load").leak());
+pub static SETTINGS_FAN_CHOICE: LazyLock<&'static str> = LazyLock::new(|| fl!("sensor-fan").leak());
 pub static SETTINGS_MEMORY_CHOICE: LazyLock<&'static str> =
     LazyLock::new(|| fl!("settings-memory").leak());
 pub static SETTINGS_NETWORK_CHOICE: LazyLock<&'static str> =
@@ -135,6 +138,7 @@ pub enum SettingsVariant {
     Cpu,
     Memory,
     SystemLoad,
+    Fan,
     Network,
     NetworkInterfaces,
     Disks,
@@ -163,6 +167,7 @@ pub struct Minimon {
 
     cpu: Cpu,
     cputemp: CpuTemp,
+    fan: Fan,
     memory: Memory,
     systemload: SystemLoad,
     network1: Network,
@@ -218,6 +223,7 @@ pub struct Minimon {
     value_w_width: Option<f32>,
     value_systemload_width: Option<f32>,
     value_temp_width: Option<f32>,
+    value_fan_width: Option<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -277,6 +283,10 @@ pub enum Message {
     ToggleCpuTempValue(bool),
     ToggleCpuTempLabel(bool),
     ToggleCpuTempIcon(bool),
+    ToggleFanChart(bool),
+    ToggleFanValue(bool),
+    ToggleFanLabel(bool),
+    ToggleFanIcon(bool),
     ToggleCpuNoDecimals(bool),
     CpuBarSizeChanged(u16),
     CpuNarrowBarSpacing(bool),
@@ -351,6 +361,7 @@ impl cosmic::Application for Minimon {
             core,
             cpu: Cpu::new(is_horizontal),
             cputemp: CpuTemp::default(),
+            fan: Fan::default(),
             memory: Memory::default(),
             systemload: SystemLoad::default(),
             network1: Network::default(),
@@ -379,6 +390,7 @@ impl cosmic::Application for Minimon {
             value_w_width: None,
             value_systemload_width: None,
             value_temp_width: None, // Assuming CPU and all GPUs use same unit
+            value_fan_width: None,
         };
 
         let config: MinimonConfig =
@@ -485,6 +497,9 @@ impl cosmic::Application for Minimon {
                     }
                     ContentType::CpuTemp => {
                         elements.extend(self.cpu_temp_panel_ui(horizontal));
+                    }
+                    ContentType::Fan => {
+                        elements.extend(self.fan_panel_ui(horizontal));
                     }
                     ContentType::SystemLoad => {
                         elements.extend(self.systemload_panel_ui(horizontal));
@@ -593,6 +608,7 @@ impl cosmic::Application for Minimon {
                 Some(SettingsVariant::General) => self.general_settings_page(),
                 Some(SettingsVariant::Cpu) => self.cpu_settings_page(),
                 Some(SettingsVariant::SystemLoad) => self.systemload_settings_page(),
+                Some(SettingsVariant::Fan) => self.fan_settings_page(),
                 Some(SettingsVariant::Memory) => self.memory_settings_page(),
                 Some(SettingsVariant::Network) => self.network_settings_page(),
                 Some(SettingsVariant::NetworkInterfaces) => self.network_interfaces_page(),
@@ -711,6 +727,9 @@ impl cosmic::Application for Minimon {
                     }
                     DeviceKind::CpuTemp => {
                         self.colorpicker.activate(device, self.cputemp.demo_graph());
+                    }
+                    DeviceKind::Fan => {
+                        self.colorpicker.activate(device, self.fan.demo_graph());
                     }
                     DeviceKind::SystemLoad => {
                         self.colorpicker
@@ -900,6 +919,10 @@ impl cosmic::Application for Minimon {
                         self.cputemp.set_graph_kind(kind);
                         self.config.cputemp.chart = kind;
                     }
+                    DeviceKind::Fan => {
+                        self.fan.set_graph_kind(kind);
+                        self.config.fan.chart = kind;
+                    }
                     DeviceKind::Memory => {
                         self.memory.set_graph_kind(kind);
                         self.config.memory.chart = kind;
@@ -1009,6 +1032,7 @@ impl cosmic::Application for Minimon {
                 match device {
                     DeviceKind::Cpu => self.config.cpu.use_graph_colors = enabled,
                     DeviceKind::CpuTemp => self.config.cputemp.use_graph_colors = enabled,
+                    DeviceKind::Fan => self.config.fan.use_graph_colors = enabled,
                     DeviceKind::SystemLoad => self.config.systemload.use_graph_colors = enabled,
                     DeviceKind::Memory => self.config.memory.use_graph_colors = enabled,
                     DeviceKind::Network(variant) => {
@@ -1088,6 +1112,30 @@ impl cosmic::Application for Minimon {
             Message::ToggleCpuTempIcon(toggled) => {
                 info!("Message::ToggleCpuTempIcon({toggled:?})");
                 self.config.cputemp.show_icon(toggled);
+                self.save_config();
+            }
+
+            Message::ToggleFanChart(toggled) => {
+                info!("Message::ToggleFanChart({toggled:?})");
+                self.config.fan.show_chart(toggled);
+                self.save_config();
+            }
+
+            Message::ToggleFanValue(toggled) => {
+                info!("Message::ToggleFanValue({toggled:?})");
+                self.config.fan.show_value(toggled);
+                self.save_config();
+            }
+
+            Message::ToggleFanLabel(toggled) => {
+                info!("Message::ToggleFanLabel({toggled:?})");
+                self.config.fan.show_label(toggled);
+                self.save_config();
+            }
+
+            Message::ToggleFanIcon(toggled) => {
+                info!("Message::ToggleFanIcon({toggled:?})");
+                self.config.fan.show_icon(toggled);
                 self.save_config();
             }
 
@@ -1361,6 +1409,7 @@ impl Minimon {
         self.refresh_rate.store(rr, atomic::Ordering::Relaxed);
         self.cpu.update_config(&config.cpu, rr);
         self.cputemp.update_config(&config.cputemp, rr);
+        self.fan.update_config(&config.fan, rr);
         self.memory.update_config(&config.memory, rr);
         self.systemload.update_config(&config.systemload, rr);
         self.network1.update_config(&config.network1, rr);
@@ -1384,6 +1433,7 @@ impl Minimon {
 
             if self.config.cpu.visible()
                 || self.config.cputemp.visible()
+                || self.config.fan.visible()
                 || self.config.systemload.visible()
                 || self.config.memory.visible()
                 || self.config.network1.visible()
@@ -1625,6 +1675,14 @@ impl Minimon {
                 Message::Settings(Some(SettingsVariant::Disks)),
             ));
 
+        if self.fan.is_found() {
+            sensors = sensors.add(ui::go_next_value_row(
+                *SETTINGS_FAN_CHOICE,
+                self.fan.value(true),
+                Message::Settings(Some(SettingsVariant::Fan)),
+            ));
+        }
+
         for (id, gpu) in self.gpus.iter() {
             let info = format!(
                 "{} {} / {:.1} GB | {}",
@@ -1729,12 +1787,13 @@ impl Minimon {
                     ContentType::CpuTemp if self.cputemp.is_found() => {
                         fl!("settings-cpu-temperature")
                     }
+                    ContentType::Fan if self.fan.is_found() => fl!("sensor-fan"),
                     ContentType::SystemLoad => fl!("sensor-system-load"),
                     ContentType::MemoryUsage => fl!("settings-memory"),
                     ContentType::NetworkUsage => fl!("settings-network"),
                     ContentType::DiskUsage => fl!("settings-disks"),
                     ContentType::GpuInfo if self.has_gpus() => fl!("settings-gpu"),
-                    ContentType::CpuTemp | ContentType::GpuInfo => return None,
+                    ContentType::CpuTemp | ContentType::Fan | ContentType::GpuInfo => return None,
                 };
                 Some((index, label))
             })
@@ -1818,6 +1877,20 @@ impl Minimon {
             ],
             preview,
             vec![self.cpu.settings_ui()],
+        )
+    }
+
+    fn fan_settings_page(&self) -> SettingsColumn<'_> {
+        self.sensor_page(
+            *SETTINGS_FAN_CHOICE,
+            None,
+            vec![
+                text::body(self.fan.value(true))
+                    .class(self.fan.value_style())
+                    .into(),
+            ],
+            Minimon::chart_preview(self.fan.chart(ui::PREVIEW_SIZE, ui::PREVIEW_SIZE)),
+            vec![self.fan.settings_ui()],
         )
     }
 
@@ -2197,6 +2270,45 @@ impl Minimon {
             if self.config.cputemp.chart_visible() {
                 elements.push_back(
                     self.cputemp
+                        .chart(size.0, size.1)
+                        .height(size.0)
+                        .width(size.1)
+                        .into(),
+                );
+            }
+        }
+
+        elements
+    }
+
+    fn fan_panel_ui(&'_ self, horizontal: bool) -> VecDeque<Element<'_, crate::app::Message>> {
+        let size = self.core.applet.suggested_size(false);
+
+        let mut elements: VecDeque<Element<Message>> = VecDeque::new();
+
+        if self.fan.is_found() {
+            let fan_has_content =
+                self.config.fan.value_visible() || self.config.fan.chart_visible();
+
+            if self.config.fan.icon_visible() && fan_has_content {
+                self.push_symbolic_icon(&mut elements, FAN_ICON, false);
+            }
+
+            if self.config.fan.label_visible() && fan_has_content {
+                self.push_text_label(&mut elements, &fl!("label-fan"));
+            }
+
+            if self.config.fan.value_visible() {
+                elements.push_back(
+                    self.figure_value(self.fan.value(horizontal), self.value_fan_width)
+                        .class(self.fan.value_style())
+                        .into(),
+                );
+            }
+
+            if self.config.fan.chart_visible() {
+                elements.push_back(
+                    self.fan
                         .chart(size.0, size.1)
                         .height(size.0)
                         .width(size.1)
@@ -2659,6 +2771,9 @@ impl Minimon {
             DeviceKind::CpuTemp => {
                 *self.config.cputemp.colors_mut() = *colors;
             }
+            DeviceKind::Fan => {
+                *self.config.fan.colors_mut() = *colors;
+            }
             DeviceKind::SystemLoad => {
                 *self.config.systemload.colors_mut() = *colors;
             }
@@ -2732,6 +2847,10 @@ impl Minimon {
 
         if all || self.config.cputemp.visible() {
             self.cputemp.update();
+        }
+
+        if all || self.config.fan.visible() {
+            self.fan.update();
         }
 
         if all || self.config.systemload.visible() {
@@ -2986,6 +3105,11 @@ impl Minimon {
 
             self.value_w_width = self.measure_text_width("W ", &attrs);
             self.value_systemload_width = self.measure_text_width("8.88", &attrs);
+            self.value_fan_width = if is_horizontal {
+                self.measure_text_width("8888 RPM", &attrs)
+            } else {
+                self.measure_text_width("8888", &attrs)
+            };
         }
     }
 

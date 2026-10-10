@@ -56,6 +56,7 @@ impl From<ChartKind> for usize {
 pub enum DeviceKind {
     Cpu,
     CpuTemp,
+    Fan,
     SystemLoad,
     Memory,
     Network(NetworkVariant),
@@ -70,6 +71,7 @@ impl std::fmt::Display for DeviceKind {
         match self {
             DeviceKind::Cpu => write!(f, "{}", fl!("sensor-cpu")),
             DeviceKind::CpuTemp => write!(f, "{}", fl!("sensor-cpu-temperature")),
+            DeviceKind::Fan => write!(f, "{}", fl!("sensor-fan")),
             DeviceKind::SystemLoad => write!(f, "{}", fl!("sensor-system-load")),
             DeviceKind::Memory => write!(f, "{}", fl!("sensor-memory")),
             DeviceKind::Network(_) => write!(f, "{}", fl!("sensor-network")),
@@ -144,6 +146,14 @@ impl ChartColors {
                 },
                 ChartKind::Line => ChartColors {
                     graph1: rgba!(255, 90, 0, 85),
+                    ..Default::default()
+                },
+                _ => ChartColors::default(),
+            },
+
+            DeviceKind::Fan => match chart {
+                ChartKind::Line => ChartColors {
+                    graph1: rgba!(0, 190, 255, 85),
                     ..Default::default()
                 },
                 _ => ChartColors::default(),
@@ -385,6 +395,22 @@ impl Default for CpuTempConfig {
     }
 }
 
+make_config!(FanConfig {});
+
+impl Default for FanConfig {
+    fn default() -> Self {
+        Self {
+            chart_visible: false,
+            value_visible: false,
+            label_visible: false,
+            icon_visible: false,
+            use_graph_colors: false,
+            chart: ChartKind::Line,
+            colors: Colors::new(DeviceKind::Fan),
+        }
+    }
+}
+
 make_config!(SystemLoadConfig {});
 
 impl Default for SystemLoadConfig {
@@ -572,6 +598,7 @@ impl Default for GpuConfig {
 pub enum ContentType {
     CpuUsage,
     CpuTemp,
+    Fan,
     SystemLoad,
     MemoryUsage,
     NetworkUsage,
@@ -591,6 +618,7 @@ impl Default for ContentOrder {
             order: vec![
                 ContentType::CpuUsage,
                 ContentType::CpuTemp,
+                ContentType::Fan,
                 ContentType::SystemLoad,
                 ContentType::MemoryUsage,
                 ContentType::NetworkUsage,
@@ -624,6 +652,8 @@ pub struct MinimonConfig {
     pub memory: MemoryConfig,
     #[serde(default)]
     pub systemload: SystemLoadConfig,
+    #[serde(default)]
+    pub fan: FanConfig,
 
     pub network1: NetworkConfig,
     pub network2: NetworkConfig,
@@ -650,6 +680,7 @@ impl Default for MinimonConfig {
             cputemp: CpuTempConfig::default(),
             memory: MemoryConfig::default(),
             systemload: SystemLoadConfig::default(),
+            fan: FanConfig::default(),
             network1: NetworkConfig {
                 variant: NetworkVariant::Combined,
                 ..Default::default()
@@ -691,6 +722,7 @@ mod tests {
         check_default!(
             CpuConfig,
             CpuTempConfig,
+            FanConfig,
             SystemLoadConfig,
             MemoryConfig,
             NetworkConfig,
@@ -750,8 +782,10 @@ mod tests {
         order.include_missing();
         order.include_missing();
         assert_eq!(&order.order[..original.len()], original.as_slice());
-        assert_eq!(order.order.last(), Some(&ContentType::SystemLoad));
-        assert_eq!(order.order.len(), original.len() + 1);
+        assert_eq!(
+            &order.order[original.len()..],
+            [ContentType::Fan, ContentType::SystemLoad]
+        );
     }
 
     #[test]
